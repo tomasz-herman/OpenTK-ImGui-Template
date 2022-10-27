@@ -37,16 +37,16 @@ public class Program : GameWindow
         camera = new Camera(new FirstPersonControl(), new PerspectiveView());
 
         float[] vertices = {
-            0.5f,  0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0f,
-            -0.5f,  0.5f, 0.0f
+            0.5f,  0.5f, 2.0f,
+            0.5f, -0.5f, 2.0f,
+            -0.5f, -0.5f, 2.0f,
+            -0.5f,  0.5f, 2.0f
         };
         float[] texCoords = {
-            1.0f, 0.0f,
-            1.0f, 1.0f,
+            0.0f, 0.0f,
             0.0f, 1.0f,
-            0.0f, 0.0f
+            1.0f, 1.0f,
+            1.0f, 0.0f
                 
         };
         int[] indices= {

@@ -12,7 +12,7 @@ public class Camera
     public Vector3 Up { get; private set; } = Vector3.UnitY;
     public Vector3 Right { get; private set; } = Vector3.UnitX;
     public float Aspect { get; set; } = 16f / 9f;
-    public Vector3 Position { get; private set; } = Vector3.UnitZ;
+    public Vector3 Position { get; private set; } = Vector3.Zero;
     
     private float _pitch;
     public float Pitch
@@ -26,7 +26,7 @@ public class Camera
         }
     }
         
-    private float _yaw;
+    private float _yaw = MathHelper.PiOver2;
     public float Yaw
     {
         get => _yaw;
