@@ -14,6 +14,7 @@ public class Program : GameWindow
     private Shader shader;
     private ImGuiController controller;
     private Mesh rectangle;
+    private Camera camera;
     private Texture texture;
 
     public static void Main(string[] args)
@@ -32,6 +33,8 @@ public class Program : GameWindow
 
         shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         controller = new ImGuiController(ClientSize.X, ClientSize.Y);
+
+        camera = new Camera(new FirstPersonControl(), new PerspectiveView());
 
         float[] vertices = {
             0.5f,  0.5f, 0.0f,
@@ -74,6 +77,7 @@ public class Program : GameWindow
         base.OnResize(e);
         GL.Viewport(0, 0, Size.X, Size.Y);
         controller.WindowResized(ClientSize.X, ClientSize.Y);
+        camera.Aspect = (float) Size.X / Size.Y;
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -84,8 +88,10 @@ public class Program : GameWindow
 
         if(ImGui.GetIO().WantCaptureMouse) return;
 
-        KeyboardState keyboard = KeyboardState.GetSnapshot();
-        MouseState mouse = MouseState.GetSnapshot();
+        var keyboard = KeyboardState.GetSnapshot();
+        var mouse = MouseState.GetSnapshot();
+        
+        camera.HandleInput(keyboard, mouse, (float) args.Time);
             
         if (keyboard.IsKeyDown(Keys.Escape)) Close();
     }
@@ -103,6 +109,7 @@ public class Program : GameWindow
         shader.Use();
         texture.Use();
         shader.LoadInteger("sampler", 0);
+        shader.LoadMatrix4("mvp", camera.GetProjectionViewMatrix());
         rectangle.Render();
 
         RenderGui();

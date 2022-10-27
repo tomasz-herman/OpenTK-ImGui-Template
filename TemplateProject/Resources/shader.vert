@@ -5,7 +5,9 @@ layout (location = 1) in vec2 texture;
 
 out vec2 TexCoord;
 
+uniform mat4 mvp;
+
 void main() {
-    gl_Position = vec4(position, 1.0);
+    gl_Position = mvp * vec4(position, 1.0);
     TexCoord = texture;
 }
