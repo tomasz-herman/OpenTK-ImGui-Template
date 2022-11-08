@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using OpenTK.Graphics.OpenGL4;
 using StbImageSharp;
 
@@ -17,7 +18,7 @@ public class Texture : IDisposable
         GL.BindTexture(TextureTarget.Texture2D, 0);
     }
 
-    private void LoadTexture(string path, Options options = default)
+    private void LoadTexture(string path, Options? options = null)
     {
         var assembly = Assembly.GetExecutingAssembly();
         using var stream = assembly.GetManifestResourceStream($"TemplateProject.Resources.{path}");
@@ -32,15 +33,12 @@ public class Texture : IDisposable
             PixelFormat.Rgba, 
             PixelType.UnsignedByte, 
             image.Data);
-            
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-            (int) options.MinFilter);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-            (int) options.MagFilter);
 
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int) options.WrapS);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int) options.WrapT);
-            
+        foreach (var parameter in (options ?? new Options()).GetOptions())
+        {
+            GL.TexParameter(TextureTarget.Texture2D, parameter.Key, Convert.ToInt32(parameter.Value));
+        }
+
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
     }
 
@@ -56,13 +54,39 @@ public class Texture : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public struct Options
+    public class Options
     {
-        public TextureMinFilter MinFilter = TextureMinFilter.LinearMipmapLinear;
-        public TextureMagFilter MagFilter = TextureMagFilter.Linear;
-        public TextureWrapMode WrapS = TextureWrapMode.Repeat;
-        public TextureWrapMode WrapT = TextureWrapMode.Repeat;
+        private Dictionary<TextureParameterName, Enum> Parameters { get; } = new()
+        {
+            { TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear },
+            { TextureParameterName.TextureMagFilter, TextureMinFilter.Linear },
+            { TextureParameterName.TextureWrapS, TextureWrapMode.Repeat },
+            { TextureParameterName.TextureWrapT, TextureWrapMode.Repeat },
+        };
 
-        public Options() { }
+        public Options(params (TextureParameterName name, Enum value)[] parameters)
+        {
+            foreach (var (name, value) in parameters) AddOption(name, value);
+        }
+
+        public void AddOption(TextureParameterName name, Enum value)
+        {
+            Parameters[name] = value;
+        }
+
+        public IEnumerable<(TextureParameterName Key, Enum Value)> GetOptions()
+        {
+            return Parameters.Select(x => (x.Key,x.Value));
+        }
+
+        public override string ToString()
+        {
+            StringBuilder builder = new StringBuilder();
+            foreach (var (name, value) in Parameters)
+            {
+                builder.Append($"{name} : {value}\n");
+            }
+            return builder.ToString();
+        }
     }
 }
