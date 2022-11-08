@@ -70,6 +70,7 @@ public class Program : GameWindow
         rectangle.Dispose();
         controller.Dispose();
         texture.Dispose();
+        shader.Dispose();
     }
 
     protected override void OnResize(ResizeEventArgs e)
