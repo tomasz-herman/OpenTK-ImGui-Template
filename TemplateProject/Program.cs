@@ -11,6 +11,8 @@ namespace TemplateProject;
 
 public class Program : GameWindow
 {
+    public bool IsLoaded { get; private set; }
+    
     private Shader shader;
     private ImGuiController controller;
     private Mesh rectangle;
@@ -61,6 +63,8 @@ public class Program : GameWindow
         GL.Disable(EnableCap.CullFace);
         GL.Enable(EnableCap.DepthTest);
         GL.DepthFunc(DepthFunction.Lequal);
+
+        IsLoaded = true;
     }
 
     protected override void OnUnload()
@@ -71,10 +75,17 @@ public class Program : GameWindow
         controller.Dispose();
         texture.Dispose();
         shader.Dispose();
+
+        IsLoaded = false;
     }
 
     protected override void OnResize(ResizeEventArgs e)
     {
+        if (!IsLoaded)
+        {
+            return;
+        }
+        
         base.OnResize(e);
         GL.Viewport(0, 0, Size.X, Size.Y);
         controller.WindowResized(ClientSize.X, ClientSize.Y);
