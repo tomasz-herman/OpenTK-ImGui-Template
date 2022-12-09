@@ -19,9 +19,11 @@ public class Mesh : IDisposable
             LoadData(data, index, size);
         LoadIndices(indices);
         GL.BindVertexArray(0);
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
     }
 
-    private void LoadData(float[] data, int index, int size) {
+    private void LoadData(float[] data, int index, int size)
+    {
         var vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
         GL.BufferData(BufferTarget.ArrayBuffer, data.Length * sizeof(float), data, BufferUsageHint.StaticDraw);
@@ -43,7 +45,6 @@ public class Mesh : IDisposable
         var vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, vbo);
         GL.BufferData(BufferTarget.ElementArrayBuffer, data.Length * sizeof(int), data, BufferUsageHint.StaticDraw);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         Vbos.Add(vbo);
     }
 
