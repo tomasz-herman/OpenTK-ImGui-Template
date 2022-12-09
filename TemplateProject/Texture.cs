@@ -28,7 +28,7 @@ public class Texture : IDisposable
         
         if(generateMipmaps) GenerateMipmaps();
 
-        GL.BindTexture(TextureTarget.Texture2D, 0);
+        Unbind();
     }
 
     public void LoadDataFromResources(string path)
@@ -65,6 +65,19 @@ public class Texture : IDisposable
     {
         GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat, 
             width, height, 0, format, type, data);
+    }
+    
+    public void UpdateData<T>(T[] data, int xOffset, int yOffset, int width, int height,
+        PixelFormat format, PixelType type, int level = 0) 
+        where T: struct
+    {
+        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
+    }
+    
+    public void UpdateData(IntPtr data, int xOffset, int yOffset, int width, int height,
+        PixelFormat format, PixelType type, int level = 0)
+    {
+        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
     }
 
     public void ApplyOptions(Options options)
