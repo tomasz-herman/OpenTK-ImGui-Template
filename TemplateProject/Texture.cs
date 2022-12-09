@@ -7,11 +7,11 @@ namespace TemplateProject;
 
 public class Texture : IDisposable
 {
-    private int _handle;
+    public int Handle { get; }
 
-    public Texture(string path, Options options = default)
+    public Texture(string path, Options options = null!)
     {
-        _handle = GL.GenTexture();
+        Handle = GL.GenTexture();
         Use();
         LoadTexture(path, options);
             
@@ -45,12 +45,12 @@ public class Texture : IDisposable
     public void Use(TextureUnit unit = TextureUnit.Texture0)
     {
         GL.ActiveTexture(unit);
-        GL.BindTexture(TextureTarget.Texture2D, _handle);
+        GL.BindTexture(TextureTarget.Texture2D, Handle);
     }
 
     public void Dispose()
     {
-        GL.DeleteTexture(_handle);
+        GL.DeleteTexture(Handle);
         GC.SuppressFinalize(this);
     }
 

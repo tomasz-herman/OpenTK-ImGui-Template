@@ -7,7 +7,7 @@ namespace TemplateProject;
 
 public class Shader : IDisposable
 {
-    private int _handle;
+    public int Handle { get; private set; }
     private bool _disposed;
 
     public Shader(params (string path, ShaderType type)[] paths)
@@ -60,57 +60,57 @@ public class Shader : IDisposable
 
     private void CreateProgram(params int[] shaders)
     {
-        _handle = GL.CreateProgram();
+        Handle = GL.CreateProgram();
 
         foreach (var shader in shaders)
         {
-            GL.AttachShader(_handle, shader);
+            GL.AttachShader(Handle, shader);
         }
             
-        GL.LinkProgram(_handle);
+        GL.LinkProgram(Handle);
     }
         
     private void CleanupShaders(params int[] shaders)
     {
         foreach (var shader in shaders)
         {
-            GL.DetachShader(_handle, shader);
+            GL.DetachShader(Handle, shader);
             GL.DeleteShader(shader);
         }
     }
         
     public void Use()
     {
-        GL.UseProgram(_handle);
+        GL.UseProgram(Handle);
     }
 
     public void LoadInteger(string name, int value)
     {
-        int location = GL.GetUniformLocation(_handle, name);
+        int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform1(location, value);
     }
         
     public void LoadFloat(string name, float value)
     {
-        int location = GL.GetUniformLocation(_handle, name);
+        int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform1(location, value);
     }
         
     public void LoadFloat3(string name, Vector3 value)
     {
-        int location = GL.GetUniformLocation(_handle, name);
+        int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform3(location, ref value);
     }
                 
     public void LoadFloat4(string name, Vector4 value)
     {
-        int location = GL.GetUniformLocation(_handle, name);
+        int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform4(location, ref value);
     }
         
     public void LoadMatrix4(string name, Matrix4 value)
     {
-        int location = GL.GetUniformLocation(_handle, name);
+        int location = GL.GetUniformLocation(Handle, name);
         GL.UniformMatrix4(location, false, ref value);
     }
 
@@ -118,7 +118,7 @@ public class Shader : IDisposable
     {
         if (!_disposed)
         {
-            GL.DeleteProgram(_handle);
+            GL.DeleteProgram(Handle);
             _disposed = true;
         }
         GC.SuppressFinalize(this);
@@ -126,6 +126,6 @@ public class Shader : IDisposable
 
     ~Shader()
     {
-        GL.DeleteProgram(_handle);
+        GL.DeleteProgram(Handle);
     }
 }
