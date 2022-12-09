@@ -119,7 +119,7 @@ public class Program : GameWindow
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             
         shader.Use();
-        texture.Use();
+        texture.Bind();
         shader.LoadInteger("sampler", 0);
         shader.LoadMatrix4("mvp", camera.GetProjectionViewMatrix());
         rectangle.Render();

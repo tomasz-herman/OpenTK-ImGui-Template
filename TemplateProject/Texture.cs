@@ -7,45 +7,88 @@ namespace TemplateProject;
 
 public class Texture : IDisposable
 {
+    public const string ResourcesPath = "TemplateProject.Resources";
     public int Handle { get; }
 
-    public Texture(string path, Options options = null!)
+    public Texture()
     {
         Handle = GL.GenTexture();
-        Use();
-        LoadTexture(path, options);
-            
+    }
+
+    public Texture(string path, bool resource = true, Options? options = null, bool generateMipmaps = true)
+    {
+        Handle = GL.GenTexture();
+
+        Bind();
+
+        if(resource) LoadDataFromResources(path);
+        else LoadDataFromFile(path);
+
+        ApplyOptions(options ?? Options.Default);
+        
+        if(generateMipmaps) GenerateMipmaps();
+
         GL.BindTexture(TextureTarget.Texture2D, 0);
     }
 
-    private void LoadTexture(string path, Options? options = null)
+    public void LoadDataFromResources(string path)
     {
         var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream($"TemplateProject.Resources.{path}");
+        using var stream = assembly.GetManifestResourceStream($"{ResourcesPath}.{path}");
 
         ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 
-        GL.TexImage2D(TextureTarget.Texture2D, 
-            0, 
-            PixelInternalFormat.Rgba, 
-            image.Width, image.Height, 
-            0, 
-            PixelFormat.Rgba, 
-            PixelType.UnsignedByte, 
-            image.Data);
+        LoadData(image.Data, image.Width, image.Height, 
+            PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
+    }
 
-        foreach (var parameter in (options ?? new Options()).GetOptions())
+    public void LoadDataFromFile(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+
+        ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+
+        LoadData(image.Data, image.Width, image.Height, 
+            PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
+    }
+
+    public void LoadData<T>(T[] data, int width, int height, 
+        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0) 
+        where T: struct
+    {
+        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat, 
+            width, height, 0, format, type, data);
+    }
+    
+    public void LoadData(IntPtr data, int width, int height, 
+        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0)
+    {
+        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat, 
+            width, height, 0, format, type, data);
+    }
+
+    public void ApplyOptions(Options options)
+    {
+        foreach (var parameter in options.Parameters)
         {
             GL.TexParameter(TextureTarget.Texture2D, parameter.Key, Convert.ToInt32(parameter.Value));
         }
+    }
 
+    public void GenerateMipmaps()
+    {
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
     }
 
-    public void Use(TextureUnit unit = TextureUnit.Texture0)
+    public void Bind(TextureUnit unit = TextureUnit.Texture0)
     {
         GL.ActiveTexture(unit);
         GL.BindTexture(TextureTarget.Texture2D, Handle);
+    }
+    
+    public void Unbind()
+    {
+        GL.BindTexture(TextureTarget.Texture2D, 0);
     }
 
     public void Dispose()
@@ -56,27 +99,22 @@ public class Texture : IDisposable
 
     public class Options
     {
-        private Dictionary<TextureParameterName, Enum> Parameters { get; } = new()
-        {
-            { TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear },
-            { TextureParameterName.TextureMagFilter, TextureMinFilter.Linear },
-            { TextureParameterName.TextureWrapS, TextureWrapMode.Repeat },
-            { TextureParameterName.TextureWrapT, TextureWrapMode.Repeat },
-        };
+        public static Options Default => new(
+            (TextureParameterName.TextureMinFilter, TextureMinFilter.Linear),
+            (TextureParameterName.TextureMagFilter, TextureMagFilter.Linear),
+            (TextureParameterName.TextureWrapS, TextureWrapMode.Repeat),
+            (TextureParameterName.TextureWrapT, TextureWrapMode.Repeat)); 
+
+        public Dictionary<TextureParameterName, Enum> Parameters { get; } = new();
 
         public Options(params (TextureParameterName name, Enum value)[] parameters)
         {
-            foreach (var (name, value) in parameters) AddOption(name, value);
+            foreach (var (name, value) in parameters) SetParameter(name, value);
         }
 
-        public void AddOption(TextureParameterName name, Enum value)
+        public void SetParameter(TextureParameterName name, Enum value)
         {
             Parameters[name] = value;
-        }
-
-        public IEnumerable<(TextureParameterName Key, Enum Value)> GetOptions()
-        {
-            return Parameters.Select(x => (x.Key,x.Value));
         }
 
         public override string ToString()
