@@ -78,37 +78,7 @@ public class ImGuiController : IDisposable
 
         RecreateFontDeviceTexture();
 
-        string VertexSource = @"#version 330 core
-
-uniform mat4 projection_matrix;
-
-layout(location = 0) in vec2 in_position;
-layout(location = 1) in vec2 in_texCoord;
-layout(location = 2) in vec4 in_color;
-
-out vec4 color;
-out vec2 texCoord;
-
-void main()
-{
-    gl_Position = projection_matrix * vec4(in_position, 0, 1);
-    color = in_color;
-    texCoord = in_texCoord;
-}";
-        string FragmentSource = @"#version 330 core
-
-uniform sampler2D in_fontTexture;
-
-in vec4 color;
-in vec2 texCoord;
-
-out vec4 outputColor;
-
-void main()
-{
-    outputColor = color * texture(in_fontTexture, texCoord);
-}";
-        _shader = new Shader("ImGui", VertexSource, FragmentSource);
+        _shader = new Shader(("imgui.vert", ShaderType.VertexShader), ("imgui.frag", ShaderType.FragmentShader));
 
         GL.VertexArrayVertexBuffer(_vertexArray, 0, _vertexBuffer, IntPtr.Zero, Unsafe.SizeOf<ImDrawVert>());
         GL.VertexArrayElementBuffer(_vertexArray, _indexBuffer);
@@ -134,13 +104,14 @@ void main()
     public void RecreateFontDeviceTexture()
     {
         ImGuiIOPtr io = ImGui.GetIO();
-        io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out int width, out int height, out int bytesPerPixel);
+        io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out int width, out int height);
 
-        _fontTexture = new Texture("ImGui Text Atlas", width, height, pixels);
-        _fontTexture.SetMagFilter(TextureMagFilter.Linear);
-        _fontTexture.SetMinFilter(TextureMinFilter.Linear);
-            
-        io.Fonts.SetTexID((IntPtr)_fontTexture.GLTexture);
+        _fontTexture = new Texture();
+        _fontTexture.Bind();
+        _fontTexture.LoadData(pixels, width, height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
+        _fontTexture.ApplyOptions(Texture.Options.Default);
+
+        io.Fonts.SetTexID((IntPtr)_fontTexture.Handle);
 
         io.Fonts.ClearTexData();
     }
@@ -305,9 +276,9 @@ void main()
             -1.0f,
             1.0f);
 
-        _shader.UseShader();
-        GL.UniformMatrix4(_shader.GetUniformLocation("projection_matrix"), false, ref mvp);
-        GL.Uniform1(_shader.GetUniformLocation("in_fontTexture"), 0);
+        _shader.Use();
+        _shader.LoadMatrix4("projectionMatrix", mvp);
+        _shader.LoadInteger("fontTexture", 0);
         Util.CheckGLError("Projection");
 
         GL.BindVertexArray(_vertexArray);
