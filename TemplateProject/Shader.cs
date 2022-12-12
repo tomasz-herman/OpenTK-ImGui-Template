@@ -101,14 +101,32 @@ public class Shader : IDisposable
         int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform3(location, ref value);
     }
-                
+
+    public void LoadFloat3(string name, ref Vector3 value)
+    {
+        int location = GL.GetUniformLocation(Handle, name);
+        GL.Uniform3(location, ref value);
+    }
+
     public void LoadFloat4(string name, Vector4 value)
     {
         int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform4(location, ref value);
     }
 
+    public void LoadFloat4(string name, ref Vector4 value)
+    {
+        int location = GL.GetUniformLocation(Handle, name);
+        GL.Uniform4(location, ref value);
+    }
+
     public void LoadMatrix4(string name, Matrix4 value)
+    {
+        int location = GL.GetUniformLocation(Handle, name);
+        GL.UniformMatrix4(location, false, ref value);
+    }
+
+    public void LoadMatrix4(string name, ref Matrix4 value)
     {
         int location = GL.GetUniformLocation(Handle, name);
         GL.UniformMatrix4(location, false, ref value);
