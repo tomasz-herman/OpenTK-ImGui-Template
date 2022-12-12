@@ -107,11 +107,21 @@ public class Shader : IDisposable
         int location = GL.GetUniformLocation(Handle, name);
         GL.Uniform4(location, ref value);
     }
-        
+
     public void LoadMatrix4(string name, Matrix4 value)
     {
         int location = GL.GetUniformLocation(Handle, name);
         GL.UniformMatrix4(location, false, ref value);
+    }
+
+    public void Dispatch(int x, int y, int z)
+    {
+        GL.DispatchCompute(x, y, z);
+    }
+
+    public void Wait(MemoryBarrierFlags flags = MemoryBarrierFlags.AllBarrierBits)
+    {
+        GL.MemoryBarrier(flags);
     }
 
     public void Dispose()
