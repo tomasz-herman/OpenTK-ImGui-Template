@@ -60,6 +60,22 @@ public class Texture : IDisposable
             width, height, 0, format, type, data);
     }
     
+    public void LoadData<T>(T[,] data, int width, int height, 
+        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0) 
+        where T: struct
+    {
+        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat, 
+            width, height, 0, format, type, data);
+    }
+    
+    public void LoadData<T>(T[,,] data, int width, int height, 
+        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0) 
+        where T: struct
+    {
+        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat, 
+            width, height, 0, format, type, data);
+    }
+    
     public void LoadData(IntPtr data, int width, int height, 
         PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0)
     {
@@ -73,11 +89,48 @@ public class Texture : IDisposable
     {
         GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
     }
-    
+
+    public void UpdateData<T>(T[,] data, int xOffset, int yOffset, int width, int height,
+        PixelFormat format, PixelType type, int level = 0) 
+        where T: struct
+    {
+        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
+    }
+
+    public void UpdateData<T>(T[,,] data, int xOffset, int yOffset, int width, int height,
+        PixelFormat format, PixelType type, int level = 0) 
+        where T: struct
+    {
+        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
+    }
+
     public void UpdateData(IntPtr data, int xOffset, int yOffset, int width, int height,
         PixelFormat format, PixelType type, int level = 0)
     {
         GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
+    }
+
+    public void ReadData<T>(T[] data, PixelFormat format, PixelType type, int level = 0)
+        where T: struct
+    {
+        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
+    }
+
+    public void ReadData<T>(T[,] data, PixelFormat format, PixelType type, int level = 0)
+        where T: struct
+    {
+        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
+    }
+
+    public void ReadData<T>(T[,,] data, PixelFormat format, PixelType type, int level = 0)
+        where T: struct
+    {
+        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
+    }
+
+    public void ReadData(IntPtr data, PixelFormat format, PixelType type, int level = 0)
+    {
+        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
     }
 
     public void ApplyOptions(Options options)
