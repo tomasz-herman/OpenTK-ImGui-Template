@@ -102,23 +102,38 @@ public class Shader : IDisposable
     {
         GL.Uniform1(Uniforms[name], value);
     }
-        
+
     public void LoadFloat(string name, float value)
     {
         GL.Uniform1(Uniforms[name], value);
     }
-        
+
     public void LoadFloat3(string name, Vector3 value)
     {
         GL.Uniform3(Uniforms[name], ref value);
     }
-                
+
+    public void LoadFloat3(string name, ref Vector3 value)
+    {
+        GL.Uniform3(Uniforms[name], ref value);
+    }
+
     public void LoadFloat4(string name, Vector4 value)
     {
         GL.Uniform4(Uniforms[name], ref value);
     }
-        
+
+    public void LoadFloat4(string name, ref Vector4 value)
+    {
+        GL.Uniform4(Uniforms[name], ref value);
+    }
+
     public void LoadMatrix4(string name, Matrix4 value)
+    {
+        GL.UniformMatrix4(Uniforms[name], false, ref value);
+    }
+
+    public void LoadMatrix4(string name, ref Matrix4 value)
     {
         GL.UniformMatrix4(Uniforms[name], false, ref value);
     }
@@ -128,9 +143,9 @@ public class Shader : IDisposable
         GL.DispatchCompute(x, y, z);
     }
 
-    public void Wait()
+    public void Wait(MemoryBarrierFlags flags = MemoryBarrierFlags.AllBarrierBits)
     {
-        GL.MemoryBarrier(MemoryBarrierFlags.AllBarrierBits);
+        GL.MemoryBarrier(flags);
     }
 
     public void Dispose()
