@@ -7,8 +7,9 @@ namespace TemplateProject;
 
 public class Shader : IDisposable
 {
+    public const string ResourcesPath = "TemplateProject.Resources";
     public int Handle { get; private set; }
-    private bool _disposed;
+    private Dictionary<string, int> Uniforms { get; } = new();
 
     public Shader(params (string path, ShaderType type)[] paths)
     {
@@ -28,16 +29,18 @@ public class Shader : IDisposable
         {
             CompileShader(shader);
         }
-            
+
         CreateProgram(shaders.ToArray());
-            
+
         CleanupShaders(shaders.ToArray());
+
+        InitializeUniformsMap();
     }
 
     private string ReadSource(string path)
     {
         var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream($"TemplateProject.Resources.{path}");
+        using var stream = assembly.GetManifestResourceStream($"{ResourcesPath}.{path}");
         if (stream == null) throw new Exception("Shader not found!");
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
@@ -78,7 +81,18 @@ public class Shader : IDisposable
             GL.DeleteShader(shader);
         }
     }
-        
+
+    private void InitializeUniformsMap()
+    {
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out int uniforms);
+        for (int i = 0; i < uniforms; i++)
+        {
+            GL.GetActiveUniform(Handle, i, 64, 
+                out _, out _, out _, out string name);
+            Uniforms[name] = GL.GetUniformLocation(Handle, name);
+        }
+    }
+
     public void Use()
     {
         GL.UseProgram(Handle);
@@ -86,50 +100,27 @@ public class Shader : IDisposable
 
     public void LoadInteger(string name, int value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.Uniform1(location, value);
+        GL.Uniform1(Uniforms[name], value);
     }
         
     public void LoadFloat(string name, float value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.Uniform1(location, value);
+        GL.Uniform1(Uniforms[name], value);
     }
         
     public void LoadFloat3(string name, Vector3 value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.Uniform3(location, ref value);
+        GL.Uniform3(Uniforms[name], ref value);
     }
-
-    public void LoadFloat3(string name, ref Vector3 value)
-    {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.Uniform3(location, ref value);
-    }
-
+                
     public void LoadFloat4(string name, Vector4 value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.Uniform4(location, ref value);
+        GL.Uniform4(Uniforms[name], ref value);
     }
-
-    public void LoadFloat4(string name, ref Vector4 value)
-    {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.Uniform4(location, ref value);
-    }
-
+        
     public void LoadMatrix4(string name, Matrix4 value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.UniformMatrix4(location, false, ref value);
-    }
-
-    public void LoadMatrix4(string name, ref Matrix4 value)
-    {
-        int location = GL.GetUniformLocation(Handle, name);
-        GL.UniformMatrix4(location, false, ref value);
+        GL.UniformMatrix4(Uniforms[name], false, ref value);
     }
 
     public void Dispatch(int x, int y, int z)
@@ -137,23 +128,14 @@ public class Shader : IDisposable
         GL.DispatchCompute(x, y, z);
     }
 
-    public void Wait(MemoryBarrierFlags flags = MemoryBarrierFlags.AllBarrierBits)
+    public void Wait()
     {
-        GL.MemoryBarrier(flags);
+        GL.MemoryBarrier(MemoryBarrierFlags.AllBarrierBits);
     }
 
     public void Dispose()
     {
-        if (!_disposed)
-        {
-            GL.DeleteProgram(Handle);
-            _disposed = true;
-        }
-        GC.SuppressFinalize(this);
-    }
-
-    ~Shader()
-    {
         GL.DeleteProgram(Handle);
+        GC.SuppressFinalize(this);
     }
 }
