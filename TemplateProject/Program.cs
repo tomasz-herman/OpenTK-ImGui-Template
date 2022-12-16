@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using System.Runtime.InteropServices;
+using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -18,7 +19,8 @@ public class Program : GameWindow
     private Mesh rectangle;
     private Camera camera;
     private Texture texture;
-
+    private static DebugProc _debugProcCallback = OnDebugMessage;
+    private static GCHandle _debugProcCallbackHandle;
     public static void Main(string[] args)
     {
         using var program = new Program(GameWindowSettings.Default, NativeWindowSettings.Default);
@@ -32,6 +34,10 @@ public class Program : GameWindow
     protected override void OnLoad()
     {
         base.OnLoad();
+
+        _debugProcCallbackHandle = GCHandle.Alloc(_debugProcCallback);
+        GL.DebugMessageCallback(_debugProcCallback, IntPtr.Zero);
+        GL.Enable(EnableCap.DebugOutput);
 
         shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         controller = new ImGuiController(ClientSize.X, ClientSize.Y);
@@ -148,5 +154,21 @@ public class Program : GameWindow
         base.OnMouseWheel(e);
             
         controller.MouseScroll(e.Offset);
+    }
+
+    private static void OnDebugMessage(
+        DebugSource source,     // Source of the debugging message.
+        DebugType type,         // Type of the debugging message.
+        int id,                 // ID associated with the message.
+        DebugSeverity severity, // Severity of the message.
+        int length,             // Length of the string in pMessage.
+        IntPtr pMessage,        // Pointer to message string.
+        IntPtr pUserParam)      // The pointer you gave to OpenGL.
+    {
+        string message = Marshal.PtrToStringAnsi(pMessage, length);
+        
+        string log = $"[{severity} source={source} type={type} id={id}] {message}";
+
+        Console.WriteLine(log);
     }
 }
