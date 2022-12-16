@@ -178,9 +178,10 @@ public class Texture : IDisposable
             foreach (var (name, value) in parameters) SetParameter(name, value);
         }
 
-        public void SetParameter(TextureParameterName name, Enum value)
+        public Options SetParameter(TextureParameterName name, Enum value)
         {
             Parameters[name] = value;
+            return this;
         }
 
         public override string ToString()
