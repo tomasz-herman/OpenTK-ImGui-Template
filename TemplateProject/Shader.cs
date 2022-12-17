@@ -98,44 +98,52 @@ public class Shader : IDisposable
         GL.UseProgram(Handle);
     }
 
+    private int GetUniformLocation(string name)
+    {
+        bool found = Uniforms.TryGetValue(name, out int location);
+        if (found) return location;
+        Console.WriteLine($"Uniform with name {name} not found.");
+        return -1;
+    }
+
     public void LoadInteger(string name, int value)
     {
-        GL.Uniform1(Uniforms[name], value);
+        GL.Uniform1(GetUniformLocation(name), value);
     }
 
     public void LoadFloat(string name, float value)
     {
-        GL.Uniform1(Uniforms[name], value);
+        GL.Uniform1(GetUniformLocation(name), value);
     }
 
     public void LoadFloat3(string name, Vector3 value)
     {
-        GL.Uniform3(Uniforms[name], ref value);
+        GL.Uniform3(GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat3(string name, ref Vector3 value)
     {
-        GL.Uniform3(Uniforms[name], ref value);
+        GL.Uniform3(GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat4(string name, Vector4 value)
     {
-        GL.Uniform4(Uniforms[name], ref value);
+        GL.Uniform4(GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat4(string name, ref Vector4 value)
     {
-        GL.Uniform4(Uniforms[name], ref value);
+        GL.Uniform4(GetUniformLocation(name), ref value);
     }
 
     public void LoadMatrix4(string name, Matrix4 value)
     {
-        GL.UniformMatrix4(Uniforms[name], false, ref value);
+        GL.UniformMatrix4(GetUniformLocation(name), false, ref value);
     }
 
     public void LoadMatrix4(string name, ref Matrix4 value)
     {
-        GL.UniformMatrix4(Uniforms[name], false, ref value);
+        GL.UniformMatrix4(GetUniformLocation(name), false, ref value);
     }
 
     public void Dispatch(int x, int y, int z)
