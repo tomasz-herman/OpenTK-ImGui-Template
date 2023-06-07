@@ -208,3 +208,15 @@ public class PerspectiveView : Camera.IView
         return Matrix4.CreatePerspectiveFieldOfView(_fov, aspect, NearPlane, FarPlane);
     }
 }
+
+public class OrthoView : Camera.IView
+{
+    public float NearPlane { get; set; } = 0f;
+    public float FarPlane { get; set; } = 100f;
+    public float Size { get; set; } = 10f;
+
+    public Matrix4 GetProjectionMatrix(float aspect)
+    {
+        return Matrix4.CreateOrthographic(Size * aspect, Size, NearPlane, FarPlane);
+    }
+}
