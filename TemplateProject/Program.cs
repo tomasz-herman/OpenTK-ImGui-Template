@@ -42,7 +42,7 @@ public class Program : GameWindow
         shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         controller = new ImGuiController(ClientSize.X, ClientSize.Y);
 
-        camera = new Camera(new FirstPersonControl(), new PerspectiveView());
+        camera = new Camera(new FlyByControl(), new PerspectiveView());
 
         float[] vertices = {
             0.5f,  0.5f, 2.0f,

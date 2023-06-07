@@ -5,7 +5,15 @@ namespace TemplateProject;
 
 public class Camera
 {
-    public IControl Control { get; set; }
+    private IControl _control;
+    public IControl Control {
+        get => _control;
+        set
+        {
+            value.Initialize(this);
+            _control = value;
+        }
+    }
     public IView View { get; set; }
     
     public Vector3 Front { get; private set; } = Vector3.UnitZ;
@@ -46,6 +54,7 @@ public class Camera
     
     public interface IControl
     {
+        void Initialize(Camera camera) { }
         void HandleInput(Camera camera, KeyboardState keyboard, MouseState mouse, float dt);
     }
 
@@ -96,13 +105,52 @@ public class Camera
         Up = Vector3.Normalize(Vector3.Cross(Right, Front));
     }
 
+    public void UpdateAngles(Vector3 front)
+    {
+        _yaw = MathF.Atan2(front.Z, front.X);
+        _pitch = MathF.Asin(front.Y);
+    }
+
     public void HandleInput(KeyboardState keyboard, MouseState mouse, float dt)
     {
         Control.HandleInput(this, keyboard, mouse, dt);
     }
 }
 
-public class FirstPersonControl : Camera.IControl
+public class OrbitingControl : Camera.IControl
+{
+    public Vector3 Center { get; set; } = Vector3.Zero;
+    private float Distance { get; set; }
+    public float MinDistance { get; set; } = 0.01f;
+    public float Sensitivity { get; set; } = 0.0025f;
+
+    public void Initialize(Camera camera)
+    {
+        Distance = Vector3.Distance(Center, camera.Position);
+        Distance = Math.Clamp(Distance, MinDistance, float.PositiveInfinity);
+        if (Center == camera.Position)
+        {
+            camera.Position -= camera.Front;
+        }
+        camera.UpdateAngles((Center - camera.Position).Normalized());
+    }
+
+    public void HandleInput(Camera camera, KeyboardState keyboard, MouseState mouse, float dt)
+    {
+        if (mouse.IsButtonDown(MouseButton.Button1) && mouse.WasButtonDown(MouseButton.Button1))
+        {
+            Vector2 delta = mouse.Delta;
+            camera.Yaw -= delta.X * Sensitivity;
+            camera.Pitch += delta.Y * Sensitivity;
+        }
+
+        Distance -= mouse.ScrollDelta.Y;
+        Distance = Math.Clamp(Distance, MinDistance, float.PositiveInfinity);
+        camera.Position = Center - camera.Front * Distance;
+    }
+}
+
+public class FlyByControl : Camera.IControl
 {
     public float Sensitivity { get; set; } = 0.001f;
     public float Speed { get; set; } = 1.0f;
