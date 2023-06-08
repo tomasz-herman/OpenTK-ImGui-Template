@@ -56,23 +56,27 @@ public class Program : GameWindow
         Camera = new Camera(new FlyByControl(), new PerspectiveView());
 
         float[] vertices = {
+            // positions
             0.5f,  0.5f, 2.0f,
             0.5f, -0.5f, 2.0f,
             -0.5f, -0.5f, 2.0f,
-            -0.5f,  0.5f, 2.0f
-        };
-        float[] texCoords = {
+            -0.5f,  0.5f, 2.0f,
+            // texture coords
             0.0f, 0.0f,
             0.0f, 1.0f,
             1.0f, 1.0f,
             1.0f, 0.0f
-                
         };
         int[] indices= {
             0, 1, 3,
             1, 2, 3
-        };  
-        RectangleMesh = new Mesh(PrimitiveType.Triangles, indices, (vertices, 0, 3), (texCoords, 1, 2));
+        };
+        var indexBuffer = new IndexBuffer(indices, sizeof(int), DrawElementsType.UnsignedInt);
+        var vertexBuffer = new VertexBuffer(vertices, sizeof(float), 
+            VertexBuffer.CreateSimpleLayout, 
+            new Attribute(0, 3) /*positions*/,
+            new Attribute(1, 2)/*texture coords*/);
+        RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
 
         Texture = new Texture("texture.jpg");
             
