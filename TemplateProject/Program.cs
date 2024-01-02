@@ -71,11 +71,11 @@ public class Program : GameWindow
             0, 1, 3,
             1, 2, 3
         };
-        var indexBuffer = new IndexBuffer(indices, sizeof(int), DrawElementsType.UnsignedInt);
-        var vertexBuffer = new VertexBuffer(vertices, sizeof(float), 
-            VertexBuffer.CreateSimpleLayout, 
+        var indexBuffer = new IndexBuffer(indices, sizeof(int), 6, DrawElementsType.UnsignedInt);
+        var vertexBuffer = new VertexBuffer(vertices, sizeof(float), 4, 
+            VertexBuffer.CreateSimpleLayout, BufferUsageHint.StaticDraw, 
             new Attribute(0, 3) /*positions*/,
-            new Attribute(1, 2)/*texture coords*/);
+            new Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
 
         Texture = new Texture("texture.jpg");
