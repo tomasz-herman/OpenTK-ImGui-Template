@@ -17,6 +17,7 @@ public class Program : GameWindow
     private Shader Shader { get; set; }
     private ImGuiController ImGuiController { get; set; }
     private Mesh RectangleMesh { get; set; }
+    private Matrix4 ModelMatrix { get; set; }
     private Camera Camera { get; set; }
     private Texture Texture { get; set; }
 
@@ -53,14 +54,14 @@ public class Program : GameWindow
         Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
-        Camera = new Camera(new FlyByControl(), new PerspectiveView());
-
+        Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
+        
         float[] vertices = {
             // positions
-            0.5f,  0.5f, 2.0f,
-            0.5f, -0.5f, 2.0f,
-            -0.5f, -0.5f, 2.0f,
-            -0.5f,  0.5f, 2.0f,
+            0.5f,  0.5f, 0.0f,
+            0.5f, -0.5f, 0.0f,
+            -0.5f, -0.5f, 0.0f,
+            -0.5f,  0.5f, 0.0f,
             // texture coords
             0.0f, 0.0f,
             0.0f, 1.0f,
@@ -77,6 +78,7 @@ public class Program : GameWindow
             new Attribute(0, 3) /*positions*/,
             new Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
+        ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 2));
 
         Texture = new Texture("texture.jpg");
             
@@ -105,9 +107,9 @@ public class Program : GameWindow
         if (!IsLoaded) return;
 
         base.OnResize(e);
-        GL.Viewport(0, 0, Size.X, Size.Y);
+        GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
         ImGuiController.WindowResized(ClientSize.X, ClientSize.Y);
-        Camera.Aspect = (float) Size.X / Size.Y;
+        Camera.Aspect = (float) ClientSize.X / ClientSize.Y;
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -115,13 +117,14 @@ public class Program : GameWindow
         base.OnUpdateFrame(args);
 
         ImGuiController.Update(this, (float)args.Time);
+        Camera.Update((float) args.Time);
 
         if(ImGui.GetIO().WantCaptureMouse) return;
 
         var keyboard = KeyboardState.GetSnapshot();
         var mouse = MouseState.GetSnapshot();
-        
-        Camera.HandleInput(keyboard, mouse, (float) args.Time);
+
+        Camera.HandleInput((float) args.Time, keyboard, mouse);
             
         if (keyboard.IsKeyDown(Keys.Escape)) Close();
     }
@@ -139,7 +142,7 @@ public class Program : GameWindow
         Shader.Use();
         Texture.Bind();
         Shader.LoadInteger("sampler", 0);
-        Shader.LoadMatrix4("mvp", Camera.GetProjectionViewMatrix());
+        Shader.LoadMatrix4("mvp", ModelMatrix * Camera.ProjectionViewMatrix);
         RectangleMesh.Render();
 
         RenderGui();
@@ -147,9 +150,34 @@ public class Program : GameWindow
         Context.SwapBuffers();
     }
 
+    private static int _control = 0;
+    private static int _projection = 0;
     private void RenderGui()
     {
-        ImGui.ShowDemoWindow();
+        ImGui.Begin("Camera");
+        if (ImGui.CollapsingHeader("Control"))
+        {
+            ImGui.Indent(10);
+            if (ImGui.RadioButton("No Control", ref _control, 0)) 
+                Camera.Control = new NoControl(Camera.Control);
+            if (ImGui.RadioButton("Orbital Control", ref _control, 1))
+                Camera.Control = new OrbitingControl(Camera.Control);
+            if (ImGui.RadioButton("FlyBy Control", ref _control, 2))
+                Camera.Control = new FlyByControl(Camera.Control);
+            
+            ImGui.Indent(-10);
+        }
+        
+        if (ImGui.CollapsingHeader("Projection"))
+        {
+            ImGui.Indent(10);
+            if (ImGui.RadioButton("Perspective", ref _projection, 0))
+                Camera.Projection = new PerspectiveProjection {Aspect = Camera.Aspect};
+            if (ImGui.RadioButton("Orthographic", ref _projection, 1))
+                Camera.Projection = new OrthographicProjection {Aspect = Camera.Aspect};
+            ImGui.Indent(-10);
+        }
+        ImGui.End();
             
         ImGuiController.Render();
     }
