@@ -144,7 +144,7 @@ public class VertexBuffer : IDisposable
 
     public static void CreateInterleavedLayout(int count, params Attribute[] attributes)
     {
-        int stride = attributes.Select(attrib => attrib.Size).Sum();
+        int stride = attributes.Select(attrib => attrib.Sizeof).Sum();
         for (int index = 0, offset = 0; index < attributes.Length; index++)
         {
             attributes[index].Offset = offset;

@@ -56,17 +56,12 @@ public class Program : GameWindow
 
         Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
 
-        float[] vertices = {
-            // positions
-            0.5f,  0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0f,
-            -0.5f,  0.5f, 0.0f,
-            // texture coords
-            0.0f, 0.0f,
-            0.0f, 1.0f,
-            1.0f, 1.0f,
-            1.0f, 0.0f
+        float[] vertices = { 
+            // positions     | tex coords 
+            0.5f,  0.5f, 0.0f, 0.0f, 0.0f,
+            0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
+            -0.5f, -0.5f, 0.0f, 1.0f, 1.0f,
+            -0.5f,  0.5f, 0.0f, 1.0f, 0.0f
         };
         int[] indices = {
             0, 1, 3,
@@ -74,7 +69,7 @@ public class Program : GameWindow
         };
         var indexBuffer = new IndexBuffer(indices, sizeof(int), 6, DrawElementsType.UnsignedInt);
         var vertexBuffer = new VertexBuffer(vertices, sizeof(float), 4,
-            VertexBuffer.CreateSimpleLayout, BufferUsageHint.StaticDraw,
+            VertexBuffer.CreateInterleavedLayout, BufferUsageHint.StaticDraw,
             new Attribute(0, 3) /*positions*/,
             new Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
