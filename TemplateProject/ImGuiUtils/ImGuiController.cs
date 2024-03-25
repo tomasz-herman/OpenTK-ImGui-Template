@@ -23,7 +23,7 @@ public class ImGuiController : IDisposable
 
     private Texture _fontTexture;
     private Shader _shader;
-        
+
     private int _windowWidth;
     private int _windowHeight;
 
@@ -179,7 +179,7 @@ public class ImGuiController : IDisposable
         var screenPoint = new Vector2i((int)MouseState.X, (int)MouseState.Y);
         var point = screenPoint;//wnd.PointToClient(screenPoint);
         io.MousePos = new System.Numerics.Vector2(point.X, point.Y);
-            
+
         foreach (Keys key in Enum.GetValues(typeof(Keys)))
         {
             if (key == Keys.Unknown)
@@ -209,7 +209,7 @@ public class ImGuiController : IDisposable
     internal void MouseScroll(Vector2 offset)
     {
         ImGuiIOPtr io = ImGui.GetIO();
-            
+
         io.MouseWheel = offset.Y;
         io.MouseWheelH = offset.X;
     }

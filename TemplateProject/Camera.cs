@@ -27,7 +27,7 @@ public class Camera
         Control = control;
         Projection = projection;
     }
-    
+
     public interface IControl
     {
         void Update(Camera camera, float dt);
@@ -68,7 +68,7 @@ public class NoControl : Camera.IControl
         Up = control.Up;
         ViewMatrix = control.ViewMatrix;
     }
-    
+
     public NoControl(Vector3 position, Vector3 target, Vector3? up = null)
     {
         up ??= Vector3.UnitY;
@@ -78,7 +78,7 @@ public class NoControl : Camera.IControl
         Up = Vector3.Cross(Front, Right).Normalized();
         ViewMatrix = Matrix4.LookAt(position, target, up.Value);
     }
-    
+
     public void Update(Camera camera, float dt) { }
 
     public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse) { }
@@ -127,7 +127,7 @@ public class OrbitingControl : Camera.IControl
             Matrix4 rotateY = Matrix4.CreateFromAxisAngle(Right, -dPitch);
             toCameraVector = Vector3.TransformVector(toCameraVector, rotateY * rotateX);
         }
-        
+
         if (mouse.IsButtonDown(MouseButton.Button2) && mouse.WasButtonDown(MouseButton.Button2))
         {
             Vector2 delta = mouse.Delta;
@@ -168,7 +168,7 @@ public class FlyByControl : Camera.IControl
         Up = control.Up;
         ViewMatrix = Matrix4.LookAt(Position, Position - Front, Up);
     }
-    
+
     public FlyByControl(Vector3 position, Vector3 target, Vector3? up = null)
     {
         up ??= Vector3.UnitY;
@@ -178,7 +178,7 @@ public class FlyByControl : Camera.IControl
         Up = Vector3.Cross(Front, Right).Normalized();
         ViewMatrix = Matrix4.LookAt(position, target, up.Value);
     }
-    
+
     public void Update(Camera camera, float dt) { }
 
     public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse)
@@ -209,7 +209,7 @@ public class FlyByControl : Camera.IControl
         {
             move += Up * dt * Speed;
         }
-        
+
         if (mouse.IsButtonDown(MouseButton.Button1) && mouse.WasButtonDown(MouseButton.Button1))
         {
             Vector2 delta = mouse.Delta;
@@ -219,7 +219,7 @@ public class FlyByControl : Camera.IControl
             Matrix4 rotateY = Matrix4.CreateFromAxisAngle(Right, -rotation.Y);
             Front = Vector3.TransformVector(Front, rotateY * rotateX);
         }
-        
+
         if (mouse.IsButtonDown(MouseButton.Button2) && mouse.WasButtonDown(MouseButton.Button2))
         {
             Vector2 delta = mouse.Delta;

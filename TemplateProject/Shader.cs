@@ -56,7 +56,7 @@ public class Shader : IDisposable
     private void CompileShader(int shader)
     {
         GL.CompileShader(shader);
-            
+
         var log = GL.GetShaderInfoLog(shader);
         if (log != string.Empty) Console.WriteLine(log);
     }
@@ -69,10 +69,10 @@ public class Shader : IDisposable
         {
             GL.AttachShader(Handle, shader);
         }
-            
+
         GL.LinkProgram(Handle);
     }
-        
+
     private void CleanupShaders(params int[] shaders)
     {
         foreach (var shader in shaders)
@@ -87,7 +87,7 @@ public class Shader : IDisposable
         GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out int uniforms);
         for (int i = 0; i < uniforms; i++)
         {
-            GL.GetActiveUniform(Handle, i, 64, 
+            GL.GetActiveUniform(Handle, i, 64,
                 out _, out _, out _, out string name);
             Uniforms[name] = GL.GetUniformLocation(Handle, name);
         }

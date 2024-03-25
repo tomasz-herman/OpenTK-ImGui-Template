@@ -26,7 +26,7 @@ public class Mesh : IDisposable
     public void Render()
     {
         GL.BindVertexArray(Handle);
-        if(IndexBuffer != null) GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, IntPtr.Zero);
+        if (IndexBuffer != null) GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, IntPtr.Zero);
         else GL.DrawArrays(Type, 0, VertexBuffers[0].Count);
         GL.BindVertexArray(0);
     }
@@ -66,7 +66,7 @@ public class IndexBuffer : IDisposable
         GL.BufferData(BufferTarget.ElementArrayBuffer, Data.Length * Sizeof, gcHandle.AddrOfPinnedObject(), Usage);
         gcHandle.Free();
     }
-    
+
     public void Update()
     {
         var gcHandle = GCHandle.Alloc(Data, GCHandleType.Pinned);
@@ -102,7 +102,8 @@ public class VertexBuffer : IDisposable
         Attributes = new List<Attribute>(attributes);
     }
 
-    public void Load() {
+    public void Load()
+    {
         var gcHandle = GCHandle.Alloc(Data, GCHandleType.Pinned);
         GL.BindBuffer(BufferTarget.ArrayBuffer, Handle);
         GL.BufferData(BufferTarget.ArrayBuffer, Data.Length * Sizeof, gcHandle.AddrOfPinnedObject(), Usage);
@@ -130,7 +131,7 @@ public class VertexBuffer : IDisposable
     }
 
     public static void DontCreateLayout(int count, params Attribute[] attributes) { }
-    
+
     public static void CreateSimpleLayout(int count, params Attribute[] attributes)
     {
         for (int index = 0, offset = 0; index < attributes.Length; index++)
@@ -140,7 +141,7 @@ public class VertexBuffer : IDisposable
             offset += attributes[index].Sizeof * count;
         }
     }
-    
+
     public static void CreateInterleavedLayout(int count, params Attribute[] attributes)
     {
         int stride = attributes.Select(attrib => attrib.Size).Sum();
