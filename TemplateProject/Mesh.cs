@@ -13,7 +13,8 @@ public class Mesh : IDisposable, IBindable
     public Mesh(PrimitiveType type, IndexBuffer? indexBuffer, VertexBuffer vertexBuffer, params VertexBuffer[] vertexBuffers)
     {
         Type = type;
-        Handle = GL.GenVertexArray();
+        GL.CreateVertexArrays(1, out int handle);
+        Handle = handle;
         IndexBuffer = indexBuffer;
         VertexBuffers.Add(vertexBuffer);
         VertexBuffers.AddRange(vertexBuffers);
