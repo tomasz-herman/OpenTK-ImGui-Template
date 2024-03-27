@@ -18,13 +18,12 @@ public class Mesh : IDisposable, IBindable
         VertexBuffers.Add(vertexBuffer);
         VertexBuffers.AddRange(vertexBuffers);
         Bind();
-        indexBuffer?.Bind();
+        IndexBuffer?.Bind();
         foreach (var buffer in VertexBuffers)
         {
             buffer.Bind();
             buffer.CreateLayout();
         }
-        Unbind();
     }
 
     public void Bind()
@@ -70,51 +69,50 @@ public class IndexBuffer : IDisposable, IBuffer
 
     public IndexBuffer(DrawElementsType type, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw)
     {
+        GL.CreateBuffers(1, out int handle);
+        Handle = handle;
         Type = type;
         Usage = usage;
         Count = count;
-        Handle = GL.GenBuffer();
     }
 
     public IndexBuffer(int size, DrawElementsType type, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(type, count, usage)
     {
-        Bind();
         Allocate(size);
     }
 
     public IndexBuffer(Array data, int size, DrawElementsType type, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(type, count, usage)
     {
-        Bind();
         Load(data, size);
     }
 
     public void Allocate(int size)
     {
-        GL.BufferData(BufferTarget.ElementArrayBuffer, size, IntPtr.Zero, Usage);
+        GL.NamedBufferData(Handle, size, IntPtr.Zero, Usage);
     }
 
     public void Load(Array data, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, size, gcHandle.AddrOfPinnedObject(), Usage);
+        GL.NamedBufferData(Handle, size, gcHandle.AddrOfPinnedObject(), Usage);
         gcHandle.Free();
     }
 
     public void Update(Array data, int dataOffset, int offset, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.BufferSubData(BufferTarget.ElementArrayBuffer, offset, size, gcHandle.AddrOfPinnedObject() + dataOffset);
+        GL.NamedBufferSubData(Handle, offset, size, gcHandle.AddrOfPinnedObject() + dataOffset);
         gcHandle.Free();
     }
 
     public IntPtr Map(BufferAccess access)
     {
-        return GL.MapBuffer(BufferTarget.ElementArrayBuffer, BufferAccess.ReadWrite);
+        return GL.MapNamedBuffer(Handle, BufferAccess.ReadWrite);
     }
 
     public void Unmap()
     {
-        GL.UnmapBuffer(BufferTarget.ElementArrayBuffer);
+        GL.UnmapNamedBuffer(Handle);
     }
 
     public void Dispose()
@@ -144,7 +142,8 @@ public class VertexBuffer : IBuffer, IDisposable
 
     public VertexBuffer(CreateLayout layout, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw, params Attribute[] attributes)
     {
-        Handle = GL.GenBuffer();
+        GL.CreateBuffers(1, out int handle);
+        Handle = handle;
         Layout = layout;
         Usage = usage;
         Count = count;
@@ -153,19 +152,17 @@ public class VertexBuffer : IBuffer, IDisposable
 
     public VertexBuffer(int size, CreateLayout layout, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw, params Attribute[] attributes) : this(layout, count, usage, attributes)
     {
-        Bind();
         Allocate(size);
     }
 
     public VertexBuffer(Array data, int size, CreateLayout layout, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw, params Attribute[] attributes) : this(layout, count, usage, attributes)
     {
-        Bind();
         Load(data, size);
     }
 
     public void Allocate(int size)
     {
-        GL.BufferData(BufferTarget.ArrayBuffer, size, IntPtr.Zero, Usage);
+        GL.NamedBufferData(Handle, size, IntPtr.Zero, Usage);
     }
 
     public void CreateLayout()
@@ -181,25 +178,25 @@ public class VertexBuffer : IBuffer, IDisposable
     public void Load(Array data, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.BufferData(BufferTarget.ArrayBuffer, size, gcHandle.AddrOfPinnedObject(), Usage);
+        GL.NamedBufferData(Handle, size, gcHandle.AddrOfPinnedObject(), Usage);
         gcHandle.Free();
     }
 
     public void Update(Array data, int dataOffset, int offset, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.BufferSubData(BufferTarget.ArrayBuffer, offset, size, gcHandle.AddrOfPinnedObject() + dataOffset);
+        GL.NamedBufferSubData(Handle, offset, size, gcHandle.AddrOfPinnedObject() + dataOffset);
         gcHandle.Free();
     }
 
     public IntPtr Map(BufferAccess access)
     {
-        return GL.MapBuffer(BufferTarget.ArrayBuffer, access);
+        return GL.MapNamedBuffer(Handle, access);
     }
 
     public void Unmap()
     {
-        GL.UnmapBuffer(BufferTarget.ArrayBuffer);
+        GL.UnmapNamedBuffer(Handle);
     }
 
     public void Dispose()
