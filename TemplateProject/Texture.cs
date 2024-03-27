@@ -5,7 +5,7 @@ using StbImageSharp;
 
 namespace TemplateProject;
 
-public class Texture : IDisposable
+public class Texture : IDisposable, IBindable
 {
     public const string ResourcesPath = "TemplateProject.Resources";
     public int Handle { get; }
@@ -146,9 +146,13 @@ public class Texture : IDisposable
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
     }
 
-    public void Bind(TextureUnit unit = TextureUnit.Texture0)
+    public void ActivateUnit(TextureUnit unit = TextureUnit.Texture0)
     {
         GL.ActiveTexture(unit);
+    }
+
+    public void Bind()
+    {
         GL.BindTexture(TextureTarget.Texture2D, Handle);
     }
 

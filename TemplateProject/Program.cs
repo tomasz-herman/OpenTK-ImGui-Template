@@ -10,6 +10,18 @@ using ShaderType = OpenTK.Graphics.OpenGL4.ShaderType;
 
 namespace TemplateProject;
 
+public struct Vertex
+{
+    public Vector3 Position;
+    public Vector2 TexCoord;
+
+    public Vertex(Vector3 position, Vector2 texCoord)
+    {
+        Position = position;
+        TexCoord = texCoord;
+    }
+}
+
 public class Program : GameWindow
 {
     private bool IsLoaded { get; set; }
@@ -56,23 +68,25 @@ public class Program : GameWindow
 
         Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
 
-        float[] vertices = { 
-            // positions     | tex coords 
-            0.5f,  0.5f, 0.0f, 0.0f, 0.0f,
-            0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-            -0.5f, -0.5f, 0.0f, 1.0f, 1.0f,
-            -0.5f,  0.5f, 0.0f, 1.0f, 0.0f
+        Vertex[] vertices = {
+            new(new Vector3(0.5f, 0.5f, 0.0f), new Vector2(0.0f, 0.0f)),
+            new(new Vector3(0.5f, -0.5f, 0.0f), new Vector2(0.0f, 1.0f)),
+            new(new Vector3(-0.5f, -0.5f, 0.0f), new Vector2(1.0f, 1.0f)),
+            new(new Vector3(-0.5f, 0.5f, 0.0f), new Vector2(1.0f, 0.0f))
         };
         int[] indices = {
             0, 1, 3,
             1, 2, 3
         };
-        var indexBuffer = new IndexBuffer(indices, sizeof(int), 6, DrawElementsType.UnsignedInt);
-        var vertexBuffer = new VertexBuffer(vertices, sizeof(float), 4,
-            VertexBuffer.CreateInterleavedLayout, BufferUsageHint.StaticDraw,
+        var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(int),
+            DrawElementsType.UnsignedInt, 6);
+        var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
+            VertexBuffer.CreateInterleavedLayout,
+            4, BufferUsageHint.StaticDraw,
             new Attribute(0, 3) /*positions*/,
             new Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
+
         ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 2));
 
         Texture = new Texture("texture.jpg");
@@ -138,6 +152,7 @@ public class Program : GameWindow
         Texture.Bind();
         Shader.LoadInteger("sampler", 0);
         Shader.LoadMatrix4("mvp", ModelMatrix * Camera.ProjectionViewMatrix);
+        RectangleMesh.Bind();
         RectangleMesh.Render();
 
         RenderGui();
@@ -145,8 +160,8 @@ public class Program : GameWindow
         Context.SwapBuffers();
     }
 
-    private static int _control = 0;
-    private static int _projection = 0;
+    private static int _control;
+    private static int _projection;
     private void RenderGui()
     {
         ImGui.Begin("Camera");
