@@ -81,7 +81,6 @@ public class Program : GameWindow
         var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(int),
             DrawElementsType.UnsignedInt, 6);
         var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
-            VertexBuffer.CreateInterleavedLayout,
             4, BufferUsageHint.StaticDraw,
             new Attribute(0, 3) /*positions*/,
             new Attribute(1, 2) /*texture coords*/);
