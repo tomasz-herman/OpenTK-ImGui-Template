@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -7,22 +8,15 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace TemplateProject.ImGuiUtils;
 
-/// <summary>
-/// A modified version of Veldrid.ImGui's ImGuiRenderer.
-/// Manages input for ImGui and handles rendering ImGui's DrawLists with Veldrid.
-/// </summary>
 public class ImGuiController : IDisposable
 {
     private bool _frameBegun;
 
-    private int _vertexArray;
-    private int _vertexBuffer;
-    private int _vertexBufferSize;
-    private int _indexBuffer;
-    private int _indexBufferSize;
-
     private Texture _fontTexture;
     private Shader _shader;
+    private Mesh _mesh;
+    private IndexBuffer _indexBuffer;
+    private VertexBuffer _vertexBuffer;
 
     private int _windowWidth;
     private int _windowHeight;
@@ -66,34 +60,18 @@ public class ImGuiController : IDisposable
 
     public void CreateDeviceResources()
     {
-        Util.CreateVertexArray("ImGui", out _vertexArray);
-
-        _vertexBufferSize = 10000;
-        _indexBufferSize = 2000;
-
-        Util.CreateVertexBuffer("ImGui", out _vertexBuffer);
-        Util.CreateElementBuffer("ImGui", out _indexBuffer);
-        GL.NamedBufferData(_vertexBuffer, _vertexBufferSize, IntPtr.Zero, BufferUsageHint.DynamicDraw);
-        GL.NamedBufferData(_indexBuffer, _indexBufferSize, IntPtr.Zero, BufferUsageHint.DynamicDraw);
+        _indexBuffer = new IndexBuffer(2000 * sizeof(ushort), DrawElementsType.UnsignedShort, 2000, BufferUsageHint.DynamicDraw);
+        _vertexBuffer = new VertexBuffer(10000 * Marshal.SizeOf<ImDrawVert>(), 10000, BufferUsageHint.DynamicDraw,
+            new Attribute(0, 2), 
+            new Attribute(1, 2),
+            new Attribute(2, 4, VertexAttribType.UnsignedByte, true));
+        _mesh = new Mesh(PrimitiveType.Triangles, _indexBuffer, _vertexBuffer);
 
         RecreateFontDeviceTexture();
 
-        _shader = new Shader(("imgui.vert", ShaderType.VertexShader), ("imgui.frag", ShaderType.FragmentShader));
-
-        GL.VertexArrayVertexBuffer(_vertexArray, 0, _vertexBuffer, IntPtr.Zero, Unsafe.SizeOf<ImDrawVert>());
-        GL.VertexArrayElementBuffer(_vertexArray, _indexBuffer);
-
-        GL.EnableVertexArrayAttrib(_vertexArray, 0);
-        GL.VertexArrayAttribBinding(_vertexArray, 0, 0);
-        GL.VertexArrayAttribFormat(_vertexArray, 0, 2, VertexAttribType.Float, false, 0);
-
-        GL.EnableVertexArrayAttrib(_vertexArray, 1);
-        GL.VertexArrayAttribBinding(_vertexArray, 1, 0);
-        GL.VertexArrayAttribFormat(_vertexArray, 1, 2, VertexAttribType.Float, false, 8);
-
-        GL.EnableVertexArrayAttrib(_vertexArray, 2);
-        GL.VertexArrayAttribBinding(_vertexArray, 2, 0);
-        GL.VertexArrayAttribFormat(_vertexArray, 2, 4, VertexAttribType.UnsignedByte, true, 16);
+        _shader = new Shader(
+            ("imgui.vert", ShaderType.VertexShader), 
+            ("imgui.frag", ShaderType.FragmentShader));
 
         Util.CheckGLError("End of ImGui setup");
     }
@@ -249,20 +227,16 @@ public class ImGuiController : IDisposable
         {
             ImDrawListPtr cmd_list = draw_data.CmdListsRange[i];
 
-            int vertexSize = cmd_list.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>();
-            if (vertexSize > _vertexBufferSize)
+            if (cmd_list.VtxBuffer.Size > _vertexBuffer.Count)
             {
-                int newSize = (int)Math.Max(_vertexBufferSize * 1.5f, vertexSize);
-                GL.NamedBufferData(_vertexBuffer, newSize, IntPtr.Zero, BufferUsageHint.DynamicDraw);
-                _vertexBufferSize = newSize;
+                _vertexBuffer.Count *= 2;
+                _vertexBuffer.Allocate(_vertexBuffer.Count * Marshal.SizeOf<ImDrawVert>());
             }
 
-            int indexSize = cmd_list.IdxBuffer.Size * sizeof(ushort);
-            if (indexSize > _indexBufferSize)
+            if (cmd_list.IdxBuffer.Size > _indexBuffer.Count)
             {
-                int newSize = (int)Math.Max(_indexBufferSize * 1.5f, indexSize);
-                GL.NamedBufferData(_indexBuffer, newSize, IntPtr.Zero, BufferUsageHint.DynamicDraw);
-                _indexBufferSize = newSize;
+                _indexBuffer.Count *= 2;
+                _vertexBuffer.Allocate(_indexBuffer.Count * sizeof(ushort));
             }
         }
 
@@ -281,7 +255,7 @@ public class ImGuiController : IDisposable
         _shader.LoadInteger("fontTexture", 0);
         Util.CheckGLError("Projection");
 
-        GL.BindVertexArray(_vertexArray);
+        _mesh.Bind();
         Util.CheckGLError("VAO");
 
         draw_data.ScaleClipRects(io.DisplayFramebufferScale);
@@ -298,11 +272,8 @@ public class ImGuiController : IDisposable
         {
             ImDrawListPtr cmd_list = draw_data.CmdListsRange[n];
 
-            GL.NamedBufferSubData(_vertexBuffer, IntPtr.Zero, cmd_list.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>(), cmd_list.VtxBuffer.Data);
-            Util.CheckGLError($"Data Vert {n}");
-
-            GL.NamedBufferSubData(_indexBuffer, IntPtr.Zero, cmd_list.IdxBuffer.Size * sizeof(ushort), cmd_list.IdxBuffer.Data);
-            Util.CheckGLError($"Data Idx {n}");
+            _vertexBuffer.Update(cmd_list.VtxBuffer.Data, 0, 0, Unsafe.SizeOf<ImDrawVert>() * cmd_list.VtxBuffer.Size);
+            _indexBuffer.Update(cmd_list.IdxBuffer.Data, 0, 0, cmd_list.IdxBuffer.Size * sizeof(ushort));
 
             int vtx_offset = 0;
             int idx_offset = 0;
@@ -314,27 +285,25 @@ public class ImGuiController : IDisposable
                 {
                     throw new NotImplementedException();
                 }
+
+                GL.ActiveTexture(TextureUnit.Texture0);
+                GL.BindTexture(TextureTarget.Texture2D, (int)pcmd.TextureId);
+                Util.CheckGLError("Texture");
+
+                // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
+                var clip = pcmd.ClipRect;
+                GL.Scissor((int)clip.X, _windowHeight - (int)clip.W, (int)(clip.Z - clip.X), (int)(clip.W - clip.Y));
+                Util.CheckGLError("Scissor");
+
+                if ((io.BackendFlags & ImGuiBackendFlags.RendererHasVtxOffset) != 0)
+                {
+                    GL.DrawElementsBaseVertex(PrimitiveType.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, (IntPtr)(idx_offset * sizeof(ushort)), vtx_offset);
+                }
                 else
                 {
-                    GL.ActiveTexture(TextureUnit.Texture0);
-                    GL.BindTexture(TextureTarget.Texture2D, (int)pcmd.TextureId);
-                    Util.CheckGLError("Texture");
-
-                    // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
-                    var clip = pcmd.ClipRect;
-                    GL.Scissor((int)clip.X, _windowHeight - (int)clip.W, (int)(clip.Z - clip.X), (int)(clip.W - clip.Y));
-                    Util.CheckGLError("Scissor");
-
-                    if ((io.BackendFlags & ImGuiBackendFlags.RendererHasVtxOffset) != 0)
-                    {
-                        GL.DrawElementsBaseVertex(PrimitiveType.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, (IntPtr)(idx_offset * sizeof(ushort)), vtx_offset);
-                    }
-                    else
-                    {
-                        GL.DrawElements(BeginMode.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, (int)pcmd.IdxOffset * sizeof(ushort));
-                    }
-                    Util.CheckGLError("Draw");
+                    GL.DrawElements(BeginMode.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, (int)pcmd.IdxOffset * sizeof(ushort));
                 }
+                Util.CheckGLError("Draw");
 
                 idx_offset += (int)pcmd.ElemCount;
             }

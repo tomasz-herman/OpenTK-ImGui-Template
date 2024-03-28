@@ -40,10 +40,10 @@ public class Mesh : IDisposable, IBindable
         GL.BindVertexArray(0);
     }
 
-    public void Render()
+    public void Render(int offset = 0)
     {
-        if (IndexBuffer != null) GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, IntPtr.Zero);
-        else GL.DrawArrays(Type, 0, VertexBuffers[0].Count);
+        if (IndexBuffer != null) GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, offset);
+        else GL.DrawArrays(Type, offset, VertexBuffers[0].Count);
     }
 
     public void Dispose()
@@ -59,7 +59,9 @@ public interface IBuffer : IBindable
 {
     public void Allocate(int size);
     public void Load(Array data, int size);
+    public void Load(IntPtr data, int size);
     public void Update(Array data, int dataOffset, int offset, int size);
+    public void Update(IntPtr data, int dataOffset, int offset, int size);
     public IntPtr Map(BufferAccess access);
     public void Unmap();
 }
@@ -98,15 +100,25 @@ public class IndexBuffer : IDisposable, IBuffer
     public void Load(Array data, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.NamedBufferData(Handle, size, gcHandle.AddrOfPinnedObject(), Usage);
+        Load(gcHandle.AddrOfPinnedObject(), size);
         gcHandle.Free();
+    }
+
+    public void Load(IntPtr data, int size)
+    {
+        GL.NamedBufferData(Handle, size, data, Usage);
     }
 
     public void Update(Array data, int dataOffset, int offset, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.NamedBufferSubData(Handle, offset, size, gcHandle.AddrOfPinnedObject() + dataOffset);
+        Update(gcHandle.AddrOfPinnedObject(), dataOffset, offset, size);
         gcHandle.Free();
+    }
+
+    public void Update(IntPtr data, int dataOffset, int offset, int size)
+    {
+        GL.NamedBufferSubData(Handle, offset, size, data + dataOffset);
     }
 
     public IntPtr Map(BufferAccess access)
@@ -188,15 +200,25 @@ public class VertexBuffer : IBuffer, IDisposable
     public void Load(Array data, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.NamedBufferData(Handle, size, gcHandle.AddrOfPinnedObject(), Usage);
+        Load(gcHandle.AddrOfPinnedObject(), size);
         gcHandle.Free();
+    }
+
+    public void Load(IntPtr data, int size)
+    {
+        GL.NamedBufferData(Handle, size, data, Usage);
     }
 
     public void Update(Array data, int dataOffset, int offset, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        GL.NamedBufferSubData(Handle, offset, size, gcHandle.AddrOfPinnedObject() + dataOffset);
+        Update(gcHandle.AddrOfPinnedObject(), dataOffset, offset, size);
         gcHandle.Free();
+    }
+
+    public void Update(IntPtr data, int dataOffset, int offset, int size)
+    {
+        GL.NamedBufferSubData(Handle, offset, size, data + dataOffset);
     }
 
     public IntPtr Map(BufferAccess access)
