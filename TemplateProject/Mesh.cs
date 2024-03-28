@@ -20,7 +20,7 @@ public class Mesh : IDisposable, IBindable
         VertexBuffers.AddRange(vertexBuffers);
         if (IndexBuffer != null)
         {
-            GL.VertexArrayElementBuffer(Handle, IndexBuffer.Handle);        
+            GL.VertexArrayElementBuffer(Handle, IndexBuffer.Handle);
         }
 
         for (var index = 0; index < VertexBuffers.Count; index++)
