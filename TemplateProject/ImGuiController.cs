@@ -61,6 +61,16 @@ public class ImGuiController : IDisposable
         _windowWidth = width;
         _windowHeight = height;
     }
+    
+    public unsafe void SetupClipboard(GameWindow wnd)
+    {
+        var io = ImGui.GetIO();
+        io.ClipboardUserData = wnd.Context.WindowPtr;
+        delegate*<Window*, byte*> getClipboard = &GLFW.GetClipboardStringRaw;
+        io.GetClipboardTextFn = new IntPtr(getClipboard);
+        delegate*<Window*, byte*, void> setClipboard = &GLFW.SetClipboardStringRaw;
+        io.SetClipboardTextFn = new IntPtr(setClipboard);
+    }
 
     public void RecreateFontDeviceTexture()
     {
