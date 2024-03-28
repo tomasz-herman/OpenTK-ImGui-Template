@@ -6,7 +6,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
-namespace TemplateProject.ImGuiUtils;
+namespace TemplateProject;
 
 public class ImGuiController : IDisposable
 {
@@ -72,8 +72,6 @@ public class ImGuiController : IDisposable
         _shader = new Shader(
             ("imgui.vert", ShaderType.VertexShader), 
             ("imgui.frag", ShaderType.FragmentShader));
-
-        Util.CheckGLError("End of ImGui setup");
     }
 
     /// <summary>
@@ -253,10 +251,8 @@ public class ImGuiController : IDisposable
         _shader.Use();
         _shader.LoadMatrix4("projectionMatrix", mvp);
         _shader.LoadInteger("fontTexture", 0);
-        Util.CheckGLError("Projection");
 
         _mesh.Bind();
-        Util.CheckGLError("VAO");
 
         draw_data.ScaleClipRects(io.DisplayFramebufferScale);
 
@@ -288,12 +284,10 @@ public class ImGuiController : IDisposable
 
                 GL.ActiveTexture(TextureUnit.Texture0);
                 GL.BindTexture(TextureTarget.Texture2D, (int)pcmd.TextureId);
-                Util.CheckGLError("Texture");
 
                 // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
                 var clip = pcmd.ClipRect;
                 GL.Scissor((int)clip.X, _windowHeight - (int)clip.W, (int)(clip.Z - clip.X), (int)(clip.W - clip.Y));
-                Util.CheckGLError("Scissor");
 
                 if ((io.BackendFlags & ImGuiBackendFlags.RendererHasVtxOffset) != 0)
                 {
@@ -303,7 +297,6 @@ public class ImGuiController : IDisposable
                 {
                     GL.DrawElements(BeginMode.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, (int)pcmd.IdxOffset * sizeof(ushort));
                 }
-                Util.CheckGLError("Draw");
 
                 idx_offset += (int)pcmd.ElemCount;
             }

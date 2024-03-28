@@ -5,7 +5,6 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using TemplateProject.ImGuiUtils;
 using ShaderType = OpenTK.Graphics.OpenGL4.ShaderType;
 
 namespace TemplateProject;
