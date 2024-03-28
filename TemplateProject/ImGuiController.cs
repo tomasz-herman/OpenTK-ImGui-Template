@@ -29,7 +29,6 @@ public class ImGuiController : IDisposable
         _windowHeight = height;
 
         FontTexture = new Texture();
-        RecreateFontDeviceTexture();
         Shader = new Shader(
             ("imgui.vert", ShaderType.VertexShader),
             ("imgui.frag", ShaderType.FragmentShader));
@@ -43,6 +42,7 @@ public class ImGuiController : IDisposable
 
         IntPtr context = ImGui.CreateContext();
         ImGui.SetCurrentContext(context);
+        RecreateFontDeviceTexture();
         var io = ImGui.GetIO();
         io.Fonts.AddFontDefault();
 
