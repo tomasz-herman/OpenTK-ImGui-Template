@@ -40,10 +40,31 @@ public class Mesh : IDisposable, IBindable
         GL.BindVertexArray(0);
     }
 
-    public void Render(int offset = 0)
+    public void Render()
     {
-        if (IndexBuffer != null) GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, offset);
-        else GL.DrawArrays(Type, offset, VertexBuffers[0].Count);
+        GL.DrawArrays(Type, 0, VertexBuffers[0].Count);
+    }
+    
+    public void Render(int offset, int count)
+    { 
+        GL.DrawArrays(Type, offset, count);
+    }
+
+    public void RenderIndexed()
+    {
+        if (IndexBuffer is null) throw new InvalidOperationException("Index Buffer is null");
+        
+        GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, 0);
+    }
+
+    public void RenderIndexed(int offset, int count, int vertexOffset = 0)
+    {
+        if (IndexBuffer is null) throw new InvalidOperationException("Index Buffer is null");
+        
+        if(vertexOffset == 0) 
+            GL.DrawElements(Type, count, IndexBuffer.Type, offset);
+        else 
+            GL.DrawElementsBaseVertex(Type, count, IndexBuffer.Type, offset, vertexOffset);
     }
 
     public void Dispose()

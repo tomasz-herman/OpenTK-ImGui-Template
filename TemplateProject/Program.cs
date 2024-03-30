@@ -153,7 +153,7 @@ public class Program : GameWindow
         Shader.LoadInteger("sampler", 0);
         Shader.LoadMatrix4("mvp", ModelMatrix * Camera.ProjectionViewMatrix);
         RectangleMesh.Bind();
-        RectangleMesh.Render();
+        RectangleMesh.RenderIndexed();
 
         RenderGui();
 
@@ -162,7 +162,6 @@ public class Program : GameWindow
 
     private static int _control;
     private static int _projection;
-    private static string test = "";
     private void RenderGui()
     {
         ImGui.Begin("Camera");
@@ -189,7 +188,6 @@ public class Program : GameWindow
             ImGui.Indent(-10);
         }
 
-        ImGui.InputTextMultiline("", ref test, 500, System.Numerics.Vector2.One * 400);
         ImGui.End();
 
         ImGui.ShowDemoWindow();

@@ -198,28 +198,36 @@ public class ImGuiController : IDisposable
         io.MouseWheelH = offset.X;
     }
 
-    private void RenderImDrawData(ImDrawDataPtr drawData)
+    private unsafe void RenderImDrawData(ImDrawDataPtr drawData)
     {
         if (drawData.CmdListsCount == 0)
         {
             return;
         }
+        
+        if (drawData.TotalVtxCount > VertexBuffer.Count)
+        {
+            VertexBuffer.Count *= 2;
+            VertexBuffer.Allocate(VertexBuffer.Count * sizeof(ImDrawVert));
+        }
 
+        if (drawData.TotalIdxCount > IndexBuffer.Count)
+        {
+            IndexBuffer.Count *= 2;
+            IndexBuffer.Allocate(IndexBuffer.Count * sizeof(ushort));
+        }
+
+        int vtxOffset = 0;
+        int idxOffset = 0;
         for (int i = 0; i < drawData.CmdListsCount; i++)
         {
-            ImDrawListPtr cmdList = drawData.CmdLists[i];
+            var cmdList = drawData.CmdLists[i];
 
-            if (cmdList.VtxBuffer.Size > VertexBuffer.Count)
-            {
-                VertexBuffer.Count *= 2;
-                VertexBuffer.Allocate(VertexBuffer.Count * Marshal.SizeOf<ImDrawVert>());
-            }
+            VertexBuffer.Update(cmdList.VtxBuffer.Data, 0, vtxOffset * sizeof(ImDrawVert), cmdList.VtxBuffer.Size * sizeof(ImDrawVert));
+            IndexBuffer.Update(cmdList.IdxBuffer.Data, 0, idxOffset * sizeof(ushort), cmdList.IdxBuffer.Size * sizeof(ushort));
 
-            if (cmdList.IdxBuffer.Size > IndexBuffer.Count)
-            {
-                IndexBuffer.Count *= 2;
-                IndexBuffer.Allocate(IndexBuffer.Count * sizeof(ushort));
-            }
+            vtxOffset += cmdList.VtxBuffer.Size;
+            idxOffset += cmdList.IdxBuffer.Size;
         }
 
         // Setup orthographic projection matrix into our constant buffer
@@ -248,43 +256,32 @@ public class ImGuiController : IDisposable
         GL.Disable(EnableCap.DepthTest);
 
         // Render command lists
+        vtxOffset = 0;
+        idxOffset = 0;
         for (int n = 0; n < drawData.CmdListsCount; n++)
         {
             ImDrawListPtr cmdList = drawData.CmdLists[n];
 
-            VertexBuffer.Update(cmdList.VtxBuffer.Data, 0, 0, Unsafe.SizeOf<ImDrawVert>() * cmdList.VtxBuffer.Size);
-            IndexBuffer.Update(cmdList.IdxBuffer.Data, 0, 0, cmdList.IdxBuffer.Size * sizeof(ushort));
-
-            int vtxOffset = 0;
-            int idxOffset = 0;
-
-            for (int cmdI = 0; cmdI < cmdList.CmdBuffer.Size; cmdI++)
+            for (int i = 0; i < cmdList.CmdBuffer.Size; i++)
             {
-                ImDrawCmdPtr pcmd = cmdList.CmdBuffer[cmdI];
-                if (pcmd.UserCallback != IntPtr.Zero)
+                ImDrawCmdPtr cmd = cmdList.CmdBuffer[i];
+                if (cmd.UserCallback != IntPtr.Zero)
                 {
                     throw new NotImplementedException();
                 }
 
                 GL.ActiveTexture(TextureUnit.Texture0);
-                GL.BindTexture(TextureTarget.Texture2D, (int)pcmd.TextureId);
+                GL.BindTexture(TextureTarget.Texture2D, (int)cmd.TextureId);
 
                 // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
-                var clip = pcmd.ClipRect;
+                var clip = cmd.ClipRect;
                 GL.Scissor((int)clip.X, _windowHeight - (int)clip.W, (int)(clip.Z - clip.X), (int)(clip.W - clip.Y));
 
-                if ((io.BackendFlags & ImGuiBackendFlags.RendererHasVtxOffset) != 0)
-                {
-                    GL.DrawElementsBaseVertex(PrimitiveType.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, idxOffset * sizeof(ushort), vtxOffset);
-                }
-                else
-                {
-                    GL.DrawElements(BeginMode.Triangles, (int)pcmd.ElemCount, DrawElementsType.UnsignedShort, (int)pcmd.IdxOffset * sizeof(ushort));
-                }
-
-                idxOffset += (int)pcmd.ElemCount;
+                Mesh.RenderIndexed((int)(cmd.IdxOffset + idxOffset) * sizeof(ushort), (int)cmd.ElemCount, (int)(cmd.VtxOffset + vtxOffset));
             }
-            // vtxOffset += cmdList.VtxBuffer.Size;
+
+            idxOffset += cmdList.IdxBuffer.Size;
+            vtxOffset += cmdList.VtxBuffer.Size;
         }
 
         GL.Disable(EnableCap.Blend);
