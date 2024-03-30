@@ -9,6 +9,13 @@ public abstract class Buffer : IBindable, IDisposable
     public BufferUsageHint Usage { get; protected set; }
     public int Handle { get; protected set; }
     
+    public Buffer(BufferUsageHint usage)
+    {
+        GL.CreateBuffers(1, out int handle);
+        Handle = handle;
+        Usage = usage;
+    }
+    
     public void Allocate(int size)
     {
         GL.NamedBufferData(Handle, size, IntPtr.Zero, Usage);
@@ -68,24 +75,21 @@ public abstract class Buffer : IBindable, IDisposable
 public class IndexBuffer : Buffer
 {
     public override BufferTarget Target => BufferTarget.ElementArrayBuffer;
-    public DrawElementsType Type { get; }
+    public DrawElementsType ElementsType { get; }
     public int Count { get; set; }
 
-    public IndexBuffer(DrawElementsType type, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw)
+    public IndexBuffer(DrawElementsType elementsType, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : base(usage)
     {
-        GL.CreateBuffers(1, out int handle);
-        Handle = handle;
-        Type = type;
-        Usage = usage;
+        ElementsType = elementsType;
         Count = count;
     }
 
-    public IndexBuffer(int size, DrawElementsType type, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(type, count, usage)
+    public IndexBuffer(int size, DrawElementsType elementsType, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(elementsType, count, usage)
     {
         Allocate(size);
     }
 
-    public IndexBuffer(Array data, int size, DrawElementsType type, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(type, count, usage)
+    public IndexBuffer(Array data, int size, DrawElementsType elementsType, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(elementsType, count, usage)
     {
         Load(data, size);
     }
@@ -95,11 +99,9 @@ public class UniformBuffer : Buffer
 {
     public override BufferTarget Target => BufferTarget.UniformBuffer;
 
-    public UniformBuffer(BufferUsageHint usage = BufferUsageHint.DynamicCopy)
+    public UniformBuffer(BufferUsageHint usage = BufferUsageHint.DynamicCopy) : base(usage)
     {
-        GL.CreateBuffers(1, out int handle);
-        Handle = handle;
-        Usage = usage;
+
     }
 
     public UniformBuffer(int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
@@ -117,11 +119,9 @@ public class ShaderStorageBuffer : Buffer
 {
     public override BufferTarget Target => BufferTarget.ShaderStorageBuffer;
 
-    public ShaderStorageBuffer(BufferUsageHint usage = BufferUsageHint.DynamicCopy)
+    public ShaderStorageBuffer(BufferUsageHint usage = BufferUsageHint.DynamicCopy) : base(usage)
     {
-        GL.CreateBuffers(1, out int handle);
-        Handle = handle;
-        Usage = usage;
+
     }
 
     public ShaderStorageBuffer(int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
@@ -142,11 +142,8 @@ public class VertexBuffer : Buffer
     public int Count { get; set; }
 
 
-    public VertexBuffer(int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw, params Attribute[] attributes)
+    public VertexBuffer(int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw, params Attribute[] attributes) : base(usage)
     {
-        GL.CreateBuffers(1, out int handle);
-        Handle = handle;
-        Usage = usage;
         Count = count;
         Attributes = attributes;
     }

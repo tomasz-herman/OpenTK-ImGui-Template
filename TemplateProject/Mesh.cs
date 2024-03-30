@@ -53,7 +53,7 @@ public class Mesh : IDisposable, IBindable
     {
         if (IndexBuffer is null) throw new InvalidOperationException("Index Buffer is null");
         
-        GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.Type, 0);
+        GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.ElementsType, 0);
     }
 
     public void RenderIndexed(int offset, int count, int vertexOffset = 0)
@@ -61,9 +61,9 @@ public class Mesh : IDisposable, IBindable
         if (IndexBuffer is null) throw new InvalidOperationException("Index Buffer is null");
         
         if(vertexOffset == 0) 
-            GL.DrawElements(Type, count, IndexBuffer.Type, offset);
+            GL.DrawElements(Type, count, IndexBuffer.ElementsType, offset);
         else 
-            GL.DrawElementsBaseVertex(Type, count, IndexBuffer.Type, offset, vertexOffset);
+            GL.DrawElementsBaseVertex(Type, count, IndexBuffer.ElementsType, offset, vertexOffset);
     }
 
     public void Dispose()
