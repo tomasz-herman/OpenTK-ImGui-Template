@@ -93,6 +93,11 @@ public class IndexBuffer : Buffer
     {
         Load(data, size);
     }
+
+    public IndexBuffer(IntPtr data, int size, DrawElementsType elementsType, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw) : this(elementsType, count, usage)
+    {
+        Load(data, size);
+    }
 }
 
 public class UniformBuffer : Buffer
@@ -113,6 +118,11 @@ public class UniformBuffer : Buffer
     {
         Load(data, size);
     }
+
+    public UniformBuffer(IntPtr data, int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
+    {
+        Load(data, size);
+    }
 }
 
 public class ShaderStorageBuffer : Buffer
@@ -130,6 +140,11 @@ public class ShaderStorageBuffer : Buffer
     }
 
     public ShaderStorageBuffer(Array data, int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
+    {
+        Load(data, size);
+    }
+
+    public ShaderStorageBuffer(IntPtr data, int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
     {
         Load(data, size);
     }
@@ -154,6 +169,11 @@ public class VertexBuffer : Buffer
     }
 
     public VertexBuffer(Array data, int size, int count = 0, BufferUsageHint usage = BufferUsageHint.StaticDraw, params Attribute[] attributes) : this(count, usage, attributes)
+    {
+        Load(data, size);
+    }
+
+    public VertexBuffer(IntPtr data, int size, int count = 0, BufferUsageHint usage = BufferUsageHint.DynamicCopy, params Attribute[] attributes) : this(count, usage, attributes)
     {
         Load(data, size);
     }
