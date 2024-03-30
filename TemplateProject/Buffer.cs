@@ -97,6 +97,162 @@ public class IndexBuffer : IDisposable, IBuffer
     }
 }
 
+public class UniformBuffer : IDisposable, IBuffer
+{
+    public BufferUsageHint Usage { get; }
+    public int Handle { get; }
+
+    public UniformBuffer(BufferUsageHint usage = BufferUsageHint.DynamicCopy)
+    {
+        GL.CreateBuffers(1, out int handle);
+        Handle = handle;
+        Usage = usage;
+    }
+
+    public UniformBuffer(int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
+    {
+        Allocate(size);
+    }
+
+    public UniformBuffer(Array data, int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
+    {
+        Load(data, size);
+    }
+
+    public void Allocate(int size)
+    {
+        GL.NamedBufferData(Handle, size, IntPtr.Zero, Usage);
+    }
+
+    public void Load(Array data, int size)
+    {
+        var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        Load(gcHandle.AddrOfPinnedObject(), size);
+        gcHandle.Free();
+    }
+
+    public void Load(IntPtr data, int size)
+    {
+        GL.NamedBufferData(Handle, size, data, Usage);
+    }
+
+    public void Update(Array data, int dataOffset, int offset, int size)
+    {
+        var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        Update(gcHandle.AddrOfPinnedObject(), dataOffset, offset, size);
+        gcHandle.Free();
+    }
+
+    public void Update(IntPtr data, int dataOffset, int offset, int size)
+    {
+        GL.NamedBufferSubData(Handle, offset, size, data + dataOffset);
+    }
+
+    public IntPtr Map(BufferAccess access)
+    {
+        return GL.MapNamedBuffer(Handle, BufferAccess.ReadWrite);
+    }
+
+    public void Unmap()
+    {
+        GL.UnmapNamedBuffer(Handle);
+    }
+
+    public void Dispose()
+    {
+        GL.DeleteBuffer(Handle);
+        GC.SuppressFinalize(this);
+    }
+
+    public void Bind()
+    {
+        GL.BindBuffer(BufferTarget.UniformBuffer, Handle);
+    }
+
+    public void Unbind()
+    {
+        GL.BindBuffer(BufferTarget.UniformBuffer, 0);
+    }
+}
+
+public class ShaderStorageBuffer : IDisposable, IBuffer
+{
+    public BufferUsageHint Usage { get; }
+    public int Handle { get; }
+
+    public ShaderStorageBuffer(BufferUsageHint usage = BufferUsageHint.DynamicCopy)
+    {
+        GL.CreateBuffers(1, out int handle);
+        Handle = handle;
+        Usage = usage;
+    }
+
+    public ShaderStorageBuffer(int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
+    {
+        Allocate(size);
+    }
+
+    public ShaderStorageBuffer(Array data, int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
+    {
+        Load(data, size);
+    }
+
+    public void Allocate(int size)
+    {
+        GL.NamedBufferData(Handle, size, IntPtr.Zero, Usage);
+    }
+
+    public void Load(Array data, int size)
+    {
+        var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        Load(gcHandle.AddrOfPinnedObject(), size);
+        gcHandle.Free();
+    }
+
+    public void Load(IntPtr data, int size)
+    {
+        GL.NamedBufferData(Handle, size, data, Usage);
+    }
+
+    public void Update(Array data, int dataOffset, int offset, int size)
+    {
+        var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        Update(gcHandle.AddrOfPinnedObject(), dataOffset, offset, size);
+        gcHandle.Free();
+    }
+
+    public void Update(IntPtr data, int dataOffset, int offset, int size)
+    {
+        GL.NamedBufferSubData(Handle, offset, size, data + dataOffset);
+    }
+
+    public IntPtr Map(BufferAccess access)
+    {
+        return GL.MapNamedBuffer(Handle, BufferAccess.ReadWrite);
+    }
+
+    public void Unmap()
+    {
+        GL.UnmapNamedBuffer(Handle);
+    }
+
+    public void Dispose()
+    {
+        GL.DeleteBuffer(Handle);
+        GC.SuppressFinalize(this);
+    }
+
+    public void Bind()
+    {
+        GL.BindBuffer(BufferTarget.ShaderStorageBuffer, Handle);
+    }
+
+    public void Unbind()
+    {
+        GL.BindBuffer(BufferTarget.ShaderStorageBuffer, 0);
+    }
+}
+
 public class VertexBuffer : IBuffer, IDisposable
 {
     public Attribute[] Attributes { get; }
