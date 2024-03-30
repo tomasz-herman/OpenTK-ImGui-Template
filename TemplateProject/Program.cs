@@ -38,6 +38,7 @@ public class Program : GameWindow
     {
         var gwSettings = GameWindowSettings.Default;
         var nwSettings = NativeWindowSettings.Default;
+        nwSettings.NumberOfSamples = 16;
 
 #if DEBUG
         nwSettings.Flags |= ContextFlags.Debug;
