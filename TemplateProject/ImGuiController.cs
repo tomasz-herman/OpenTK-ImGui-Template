@@ -198,22 +198,78 @@ public class ImGuiController : IDisposable
         io.MouseWheelH = offset.X;
     }
 
+    private struct GLState
+    {
+        private bool _blend;
+        private bool _scissorTest;
+        private bool _cullFace;
+        private bool _depthTest;
+        private BlendEquationMode _blendEquationMode;
+        private BlendingFactor _blendingFactorSource;
+        private BlendingFactor _blendingFactorDest;
+
+        public static readonly GLState ImGuiState = new ()
+        {
+            _blend = true,
+            _scissorTest = true,
+            _cullFace = false,
+            _depthTest = false,
+            _blendEquationMode = BlendEquationMode.FuncAdd,
+            _blendingFactorSource = BlendingFactor.SrcAlpha,
+            _blendingFactorDest = BlendingFactor.OneMinusSrcAlpha
+        };
+
+        public static GLState SaveState()
+        {
+            int[] blendEquationMode = new int[1];
+            int[] blendingFactorSource = new int[1];
+            int[] blendingFactorDest = new int[1];
+            GL.GetInteger(GetPName.BlendEquationRgb, blendEquationMode);
+            GL.GetInteger(GetPName.BlendSrc, blendingFactorSource);
+            GL.GetInteger(GetPName.BlendDst, blendingFactorDest);
+            return new GLState
+            {
+                _blend = GL.IsEnabled(EnableCap.Blend),
+                _scissorTest = GL.IsEnabled(EnableCap.ScissorTest),
+                _cullFace = GL.IsEnabled(EnableCap.CullFace),
+                _depthTest = GL.IsEnabled(EnableCap.DepthTest),
+                _blendEquationMode = (BlendEquationMode)blendEquationMode[0],
+                _blendingFactorSource = (BlendingFactor)blendingFactorSource[0],
+                _blendingFactorDest = (BlendingFactor)blendingFactorDest[0]
+            };
+        }
+
+        public static void RestoreState(GLState state)
+        {
+            if(state._blend) GL.Enable(EnableCap.Blend);
+            else GL.Disable(EnableCap.Blend);
+            if(state._scissorTest) GL.Enable(EnableCap.ScissorTest);
+            else GL.Disable(EnableCap.ScissorTest);
+            if(state._cullFace) GL.Enable(EnableCap.CullFace);
+            else GL.Disable(EnableCap.CullFace);
+            if(state._depthTest) GL.Enable(EnableCap.DepthTest);
+            else GL.Disable(EnableCap.DepthTest);
+            GL.BlendEquation(state._blendEquationMode);
+            GL.BlendFunc(state._blendingFactorSource, state._blendingFactorDest);
+        }
+    }
+
     private unsafe void RenderImDrawData(ImDrawDataPtr drawData)
     {
         if (drawData.CmdListsCount == 0)
         {
             return;
         }
-        
+
         if (drawData.TotalVtxCount > VertexBuffer.Count)
         {
-            VertexBuffer.Count *= 2;
+            VertexBuffer.Count = drawData.TotalVtxCount * 2;
             VertexBuffer.Allocate(VertexBuffer.Count * sizeof(ImDrawVert));
         }
 
         if (drawData.TotalIdxCount > IndexBuffer.Count)
         {
-            IndexBuffer.Count *= 2;
+            IndexBuffer.Count = drawData.TotalIdxCount * 2;
             IndexBuffer.Allocate(IndexBuffer.Count * sizeof(ushort));
         }
 
@@ -248,12 +304,8 @@ public class ImGuiController : IDisposable
 
         drawData.ScaleClipRects(io.DisplayFramebufferScale);
 
-        GL.Enable(EnableCap.Blend);
-        GL.Enable(EnableCap.ScissorTest);
-        GL.BlendEquation(BlendEquationMode.FuncAdd);
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        GL.Disable(EnableCap.CullFace);
-        GL.Disable(EnableCap.DepthTest);
+        var state = GLState.SaveState();
+        GLState.RestoreState(GLState.ImGuiState);
 
         // Render command lists
         vtxOffset = 0;
@@ -284,8 +336,7 @@ public class ImGuiController : IDisposable
             vtxOffset += cmdList.VtxBuffer.Size;
         }
 
-        GL.Disable(EnableCap.Blend);
-        GL.Disable(EnableCap.ScissorTest);
+        GLState.RestoreState(state);
     }
     
     public void Dispose()
