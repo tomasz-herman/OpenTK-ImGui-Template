@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using ImGuiNET;
+﻿using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
@@ -8,7 +6,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace TemplateProject;
 
-public class ImGuiController : IDisposable
+public unsafe class ImGuiController : IDisposable
 {
     private bool _frameBegun;
 
@@ -64,7 +62,7 @@ public class ImGuiController : IDisposable
             ("imgui.frag", ShaderType.FragmentShader));
 
         IndexBuffer = new IndexBuffer(2000 * sizeof(ushort), DrawElementsType.UnsignedShort, 2000, BufferUsageHint.DynamicDraw);
-        VertexBuffer = new VertexBuffer(10000 * Marshal.SizeOf<ImDrawVert>(), 10000, BufferUsageHint.DynamicDraw,
+        VertexBuffer = new VertexBuffer(10000 * sizeof(ImDrawVert), 10000, BufferUsageHint.DynamicDraw,
             new Attribute(0, 2),
             new Attribute(1, 2),
             new Attribute(2, 4, VertexAttribType.UnsignedByte, true));
@@ -89,7 +87,7 @@ public class ImGuiController : IDisposable
         _windowHeight = height;
     }
 
-    public unsafe void SetupClipboard(GameWindow wnd)
+    public void SetupClipboard(GameWindow wnd)
     {
         var io = ImGui.GetIO();
         io.ClipboardUserData = wnd.Context.WindowPtr;
@@ -254,7 +252,7 @@ public class ImGuiController : IDisposable
         }
     }
 
-    private unsafe void RenderImDrawData(ImDrawDataPtr drawData)
+    private void RenderImDrawData(ImDrawDataPtr drawData)
     {
         if (drawData.CmdListsCount == 0)
         {
