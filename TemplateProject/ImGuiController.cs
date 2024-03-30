@@ -213,7 +213,7 @@ public class ImGuiController : IDisposable
 
         for (int i = 0; i < drawData.CmdListsCount; i++)
         {
-            ImDrawListPtr cmdList = drawData.CmdListsRange[i];
+            ImDrawListPtr cmdList = drawData.CmdLists[i];
 
             if (cmdList.VtxBuffer.Size > VertexBuffer.Count)
             {
@@ -256,7 +256,7 @@ public class ImGuiController : IDisposable
         // Render command lists
         for (int n = 0; n < drawData.CmdListsCount; n++)
         {
-            ImDrawListPtr cmdList = drawData.CmdListsRange[n];
+            ImDrawListPtr cmdList = drawData.CmdLists[n];
 
             VertexBuffer.Update(cmdList.VtxBuffer.Data, 0, 0, Unsafe.SizeOf<ImDrawVert>() * cmdList.VtxBuffer.Size);
             IndexBuffer.Update(cmdList.IdxBuffer.Data, 0, 0, cmdList.IdxBuffer.Size * sizeof(ushort));
