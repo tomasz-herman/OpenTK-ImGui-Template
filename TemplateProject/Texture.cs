@@ -170,7 +170,7 @@ public class Texture : IDisposable, IBindable
     public class Options
     {
         public static Options Default => new(
-            (TextureParameterName.TextureMinFilter, TextureMinFilter.Linear),
+            (TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear),
             (TextureParameterName.TextureMagFilter, TextureMagFilter.Linear),
             (TextureParameterName.TextureWrapS, TextureWrapMode.Repeat),
             (TextureParameterName.TextureWrapT, TextureWrapMode.Repeat));

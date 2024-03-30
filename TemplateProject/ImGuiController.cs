@@ -61,7 +61,7 @@ public class ImGuiController : IDisposable
         _windowWidth = width;
         _windowHeight = height;
     }
-    
+
     public unsafe void SetupClipboard(GameWindow wnd)
     {
         var io = ImGui.GetIO();
@@ -79,7 +79,9 @@ public class ImGuiController : IDisposable
 
         FontTexture.Bind();
         FontTexture.LoadData(pixels, width, height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
-        FontTexture.ApplyOptions(Texture.Options.Default);
+        FontTexture.ApplyOptions(
+            Texture.Options.Default
+                .SetParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear));
 
         io.Fonts.SetTexID(FontTexture.Handle);
 
