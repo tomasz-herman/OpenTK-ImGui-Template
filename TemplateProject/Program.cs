@@ -65,6 +65,7 @@ public class Program : GameWindow
 
         Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
+        ImGuiController.SetupClipboard(this);
 
         Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
 
@@ -161,6 +162,7 @@ public class Program : GameWindow
 
     private static int _control;
     private static int _projection;
+    private static string test = "";
     private void RenderGui()
     {
         ImGui.Begin("Camera");
@@ -186,7 +188,11 @@ public class Program : GameWindow
                 Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect };
             ImGui.Indent(-10);
         }
+
+        ImGui.InputTextMultiline("", ref test, 500, System.Numerics.Vector2.One * 400);
         ImGui.End();
+
+        ImGui.ShowDemoWindow();
 
         ImGuiController.Render();
     }

@@ -17,6 +17,36 @@ public class ImGuiController : IDisposable
     private Mesh Mesh { get; }
     private IndexBuffer IndexBuffer { get; }
     private VertexBuffer VertexBuffer { get; }
+    private Dictionary<Keys, ImGuiKey> KeyMappings { get; } = new (){
+        [Keys.Tab] = ImGuiKey.Tab,
+        [Keys.Left] = ImGuiKey.LeftArrow,
+        [Keys.Right] = ImGuiKey.RightArrow,
+        [Keys.Up] = ImGuiKey.UpArrow,
+        [Keys.Down] = ImGuiKey.DownArrow,
+        [Keys.PageUp] = ImGuiKey.PageUp,
+        [Keys.PageDown] = ImGuiKey.PageDown,
+        [Keys.Home] = ImGuiKey.Home,
+        [Keys.End] = ImGuiKey.End,
+        [Keys.Insert] = ImGuiKey.Insert,
+        [Keys.Delete] = ImGuiKey.Delete,
+        [Keys.Backspace] = ImGuiKey.Backspace,
+        [Keys.Enter] = ImGuiKey.Enter,
+        [Keys.Escape] = ImGuiKey.Escape,
+        [Keys.LeftControl] = ImGuiKey.ModCtrl,
+        [Keys.RightControl] = ImGuiKey.ModCtrl,
+        [Keys.LeftShift] = ImGuiKey.ModShift,
+        [Keys.RightShift] = ImGuiKey.ModShift,
+        [Keys.LeftAlt] = ImGuiKey.ModAlt,
+        [Keys.RightAlt] = ImGuiKey.ModAlt,
+        [Keys.LeftSuper] = ImGuiKey.ModSuper,
+        [Keys.RightSuper] = ImGuiKey.ModSuper,
+        [Keys.A] = ImGuiKey.A,
+        [Keys.C] = ImGuiKey.C,
+        [Keys.V] = ImGuiKey.V,
+        [Keys.X] = ImGuiKey.X,
+        [Keys.Y] = ImGuiKey.Y,
+        [Keys.Z] = ImGuiKey.Z
+    };
 
     private int _windowWidth;
     private int _windowHeight;
@@ -40,20 +70,17 @@ public class ImGuiController : IDisposable
             new Attribute(2, 4, VertexAttribType.UnsignedByte, true));
         Mesh = new Mesh(PrimitiveType.Triangles, IndexBuffer, VertexBuffer);
 
+        CreateContext();
+    }
+
+    private void CreateContext()
+    {
         IntPtr context = ImGui.CreateContext();
         ImGui.SetCurrentContext(context);
         RecreateFontDeviceTexture();
         var io = ImGui.GetIO();
         io.Fonts.AddFontDefault();
-
         io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
-
-        SetKeyMappings();
-
-        SetPerFrameImGuiData(1f / 60f);
-
-        ImGui.NewFrame();
-        _frameBegun = true;
     }
 
     public void WindowResized(int width, int height)
@@ -98,9 +125,6 @@ public class ImGuiController : IDisposable
         }
     }
 
-    /// <summary>
-    /// Updates ImGui input and IO configuration state.
-    /// </summary>
     public void Update(GameWindow wnd, float deltaSeconds)
     {
         if (_frameBegun)
@@ -115,10 +139,6 @@ public class ImGuiController : IDisposable
         ImGui.NewFrame();
     }
 
-    /// <summary>
-    /// Sets per-frame data based on the associated window.
-    /// This is called by Update(float).
-    /// </summary>
     private void SetPerFrameImGuiData(float deltaSeconds)
     {
         ImGuiIOPtr io = ImGui.GetIO();
@@ -146,13 +166,16 @@ public class ImGuiController : IDisposable
         var point = screenPoint;//wnd.PointToClient(screenPoint);
         io.MousePos = new System.Numerics.Vector2(point.X, point.Y);
 
-        foreach (Keys key in Enum.GetValues(typeof(Keys)))
+        foreach (var (key, imKey) in KeyMappings)
         {
-            if (key == Keys.Unknown)
+            if(!keyboard.WasKeyDown(key) && keyboard.IsKeyDown(key))
             {
-                continue;
+                io.AddKeyEvent(imKey, true);
             }
-            io.KeysDown[(int)key] = keyboard.IsKeyDown(key);
+            else if(keyboard.WasKeyDown(key) && !keyboard.IsKeyDown(key))
+            {
+                io.AddKeyEvent(imKey, false);
+            }
         }
 
         foreach (var c in PressedChars)
@@ -160,11 +183,6 @@ public class ImGuiController : IDisposable
             io.AddInputCharacter(c);
         }
         PressedChars.Clear();
-
-        io.KeyCtrl = keyboard.IsKeyDown(Keys.LeftControl) || keyboard.IsKeyDown(Keys.RightControl);
-        io.KeyAlt = keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt);
-        io.KeyShift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
-        io.KeySuper = keyboard.IsKeyDown(Keys.LeftSuper) || keyboard.IsKeyDown(Keys.RightSuper);
     }
 
     internal void PressChar(char keyChar)
@@ -178,30 +196,6 @@ public class ImGuiController : IDisposable
 
         io.MouseWheel = offset.Y;
         io.MouseWheelH = offset.X;
-    }
-
-    private static void SetKeyMappings()
-    {
-        ImGuiIOPtr io = ImGui.GetIO();
-        io.KeyMap[(int)ImGuiKey.Tab] = (int)Keys.Tab;
-        io.KeyMap[(int)ImGuiKey.LeftArrow] = (int)Keys.Left;
-        io.KeyMap[(int)ImGuiKey.RightArrow] = (int)Keys.Right;
-        io.KeyMap[(int)ImGuiKey.UpArrow] = (int)Keys.Up;
-        io.KeyMap[(int)ImGuiKey.DownArrow] = (int)Keys.Down;
-        io.KeyMap[(int)ImGuiKey.PageUp] = (int)Keys.PageUp;
-        io.KeyMap[(int)ImGuiKey.PageDown] = (int)Keys.PageDown;
-        io.KeyMap[(int)ImGuiKey.Home] = (int)Keys.Home;
-        io.KeyMap[(int)ImGuiKey.End] = (int)Keys.End;
-        io.KeyMap[(int)ImGuiKey.Delete] = (int)Keys.Delete;
-        io.KeyMap[(int)ImGuiKey.Backspace] = (int)Keys.Backspace;
-        io.KeyMap[(int)ImGuiKey.Enter] = (int)Keys.Enter;
-        io.KeyMap[(int)ImGuiKey.Escape] = (int)Keys.Escape;
-        io.KeyMap[(int)ImGuiKey.A] = (int)Keys.A;
-        io.KeyMap[(int)ImGuiKey.C] = (int)Keys.C;
-        io.KeyMap[(int)ImGuiKey.V] = (int)Keys.V;
-        io.KeyMap[(int)ImGuiKey.X] = (int)Keys.X;
-        io.KeyMap[(int)ImGuiKey.Y] = (int)Keys.Y;
-        io.KeyMap[(int)ImGuiKey.Z] = (int)Keys.Z;
     }
 
     private void RenderImDrawData(ImDrawDataPtr drawData)
@@ -296,15 +290,13 @@ public class ImGuiController : IDisposable
         GL.Disable(EnableCap.Blend);
         GL.Disable(EnableCap.ScissorTest);
     }
-
-    /// <summary>
-    /// Frees all graphics resources used by the renderer.
-    /// </summary>
+    
     public void Dispose()
     {
         GC.SuppressFinalize(this);
         FontTexture.Dispose();
         Shader.Dispose();
         Mesh.Dispose();
+        ImGui.DestroyContext();
     }
 }
