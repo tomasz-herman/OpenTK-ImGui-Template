@@ -164,7 +164,7 @@ public class ImGuiController : IDisposable
 
         var screenPoint = new Vector2i((int)mouse.X, (int)mouse.Y);
         var point = screenPoint;//wnd.PointToClient(screenPoint);
-        io.MousePos = new System.Numerics.Vector2(point.X, point.Y);
+        io.MousePos = new System.Numerics.Vector2(point.X / ScaleFactor.X, point.Y / ScaleFactor.Y);
 
         foreach (var (key, imKey) in KeyMappings)
         {
