@@ -46,6 +46,21 @@ public unsafe class ImGuiController : IDisposable
         [Keys.Z] = ImGuiKey.Z
     };
 
+    private State State { get; } = new (
+        new State.Texture2D(),
+        new State.Program(),
+        new State.Sampler(0),
+        new State.ArrayBuffer(),
+        new State.VertexArrayObject(),
+        new State.ElementArrayBuffer(),
+        new State.PolygonMode(),
+        new State.Blend(),
+        new State.Scissor(),
+        new State.Capability(EnableCap.CullFace),
+        new State.Capability(EnableCap.DepthTest),
+        new State.Capability(EnableCap.StencilTest)
+    );
+
     private int _windowWidth;
     private int _windowHeight;
 
@@ -53,6 +68,7 @@ public unsafe class ImGuiController : IDisposable
 
     public ImGuiController(int width, int height)
     {
+        using var prevState = State.Save();
         _windowWidth = width;
         _windowHeight = height;
 
@@ -197,63 +213,14 @@ public unsafe class ImGuiController : IDisposable
         io.MouseWheelH = offset.X;
     }
 
-    private struct GLState
-    {
-        private bool _blend;
-        private bool _scissorTest;
-        private bool _cullFace;
-        private bool _depthTest;
-        private BlendEquationMode _blendEquationMode;
-        private BlendingFactor _blendingFactorSource;
-        private BlendingFactor _blendingFactorDest;
-
-        public static readonly GLState ImGuiState = new ()
-        {
-            _blend = true,
-            _scissorTest = true,
-            _cullFace = false,
-            _depthTest = false,
-            _blendEquationMode = BlendEquationMode.FuncAdd,
-            _blendingFactorSource = BlendingFactor.SrcAlpha,
-            _blendingFactorDest = BlendingFactor.OneMinusSrcAlpha
-        };
-
-        public static GLState SaveState()
-        {
-            GLState state = new GLState
-            {
-                _blend = GL.IsEnabled(EnableCap.Blend),
-                _scissorTest = GL.IsEnabled(EnableCap.ScissorTest),
-                _cullFace = GL.IsEnabled(EnableCap.CullFace),
-                _depthTest = GL.IsEnabled(EnableCap.DepthTest)
-            };
-            GL.GetInteger(GetPName.BlendEquationRgb, (int*)&state._blendEquationMode);
-            GL.GetInteger(GetPName.BlendSrc, (int*)&state._blendingFactorSource);
-            GL.GetInteger(GetPName.BlendDst, (int*)&state._blendingFactorDest);
-            return state;
-        }
-
-        public static void RestoreState(GLState state)
-        {
-            if(state._blend) GL.Enable(EnableCap.Blend);
-            else GL.Disable(EnableCap.Blend);
-            if(state._scissorTest) GL.Enable(EnableCap.ScissorTest);
-            else GL.Disable(EnableCap.ScissorTest);
-            if(state._cullFace) GL.Enable(EnableCap.CullFace);
-            else GL.Disable(EnableCap.CullFace);
-            if(state._depthTest) GL.Enable(EnableCap.DepthTest);
-            else GL.Disable(EnableCap.DepthTest);
-            GL.BlendEquation(state._blendEquationMode);
-            GL.BlendFunc(state._blendingFactorSource, state._blendingFactorDest);
-        }
-    }
-
     private void RenderImDrawData(ImDrawDataPtr drawData)
     {
         if (drawData.CmdListsCount == 0)
         {
             return;
         }
+
+        using var prevState = State.Save();
 
         if (drawData.TotalVtxCount > VertexBuffer.Count)
         {
@@ -298,8 +265,14 @@ public unsafe class ImGuiController : IDisposable
 
         drawData.ScaleClipRects(io.DisplayFramebufferScale);
 
-        var state = GLState.SaveState();
-        GLState.RestoreState(GLState.ImGuiState);
+        GL.Enable(EnableCap.Blend);
+        GL.Enable(EnableCap.ScissorTest);
+        GL.Disable(EnableCap.CullFace);
+        GL.Disable(EnableCap.DepthTest);
+        GL.BlendEquation(BlendEquationMode.FuncAdd);
+        GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, 
+            BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
 
         // Render command lists
         vtxOffset = 0;
@@ -329,8 +302,6 @@ public unsafe class ImGuiController : IDisposable
             idxOffset += cmdList.IdxBuffer.Size;
             vtxOffset += cmdList.VtxBuffer.Size;
         }
-
-        GLState.RestoreState(state);
     }
     
     public void Dispose()
