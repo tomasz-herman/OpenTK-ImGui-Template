@@ -195,42 +195,42 @@ public class VertexBuffer : Buffer
             GL.VertexArrayAttribFormat(vao, attrib.Index, attrib.Count, attrib.Type, attrib.Normalized, attrib.Offset);
         }
     }
-}
 
-public class Attribute
-{
-    public int Index { get; set; }
-    public int Count { get; set; }
-    public VertexAttribType Type { get; set; }
-    public bool Normalized { get; set; }
-    public int Stride { get; set; }
-    public int Offset { get; set; }
-    public int Size => Count * Sizes[Type];
-
-    private static Dictionary<VertexAttribType, int> Sizes { get; } =
-        new()
-        {
-            { VertexAttribType.Byte, 1 },
-            { VertexAttribType.UnsignedByte, 1 },
-            { VertexAttribType.Short, 2 },
-            { VertexAttribType.UnsignedShort, 2 },
-            { VertexAttribType.HalfFloat, 2 },
-            { VertexAttribType.Int, 4 },
-            { VertexAttribType.UnsignedInt, 4 },
-            { VertexAttribType.Float, 4 },
-            { VertexAttribType.Fixed, 4 },
-            { VertexAttribType.Int2101010Rev, 4 },
-            { VertexAttribType.UnsignedInt2101010Rev, 4 },
-            { VertexAttribType.UnsignedInt10F11F11FRev, 4 },
-            { VertexAttribType.Double, 8 }
-        };
-    public Attribute(int index, int count, VertexAttribType type = VertexAttribType.Float, bool normalized = false, int stride = 0, int offset = 0)
+    public class Attribute
     {
-        Index = index;
-        Count = count;
-        Type = type;
-        Normalized = normalized;
-        Stride = stride;
-        Offset = offset;
+        public int Index { get; set; }
+        public int Count { get; set; }
+        public VertexAttribType Type { get; set; }
+        public bool Normalized { get; set; }
+        public int Stride { get; set; }
+        public int Offset { get; set; }
+        public int Size => Count * Sizes[Type];
+
+        private static Dictionary<VertexAttribType, int> Sizes { get; } =
+            new()
+            {
+                { VertexAttribType.Byte, 1 },
+                { VertexAttribType.UnsignedByte, 1 },
+                { VertexAttribType.Short, 2 },
+                { VertexAttribType.UnsignedShort, 2 },
+                { VertexAttribType.HalfFloat, 2 },
+                { VertexAttribType.Int, 4 },
+                { VertexAttribType.UnsignedInt, 4 },
+                { VertexAttribType.Float, 4 },
+                { VertexAttribType.Fixed, 4 },
+                { VertexAttribType.Int2101010Rev, 4 },
+                { VertexAttribType.UnsignedInt2101010Rev, 4 },
+                { VertexAttribType.UnsignedInt10F11F11FRev, 4 },
+                { VertexAttribType.Double, 8 }
+            };
+        public Attribute(int index, int count, VertexAttribType type = VertexAttribType.Float, bool normalized = false, int stride = 0, int offset = 0)
+        {
+            Index = index;
+            Count = count;
+            Type = type;
+            Normalized = normalized;
+            Stride = stride;
+            Offset = offset;
+        }
     }
 }

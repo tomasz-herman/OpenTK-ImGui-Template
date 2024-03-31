@@ -63,9 +63,9 @@ public unsafe class ImGuiController : IDisposable
 
         IndexBuffer = new IndexBuffer(2000 * sizeof(ushort), DrawElementsType.UnsignedShort, 2000, BufferUsageHint.DynamicDraw);
         VertexBuffer = new VertexBuffer(10000 * sizeof(ImDrawVert), 10000, BufferUsageHint.DynamicDraw,
-            new Attribute(0, 2),
-            new Attribute(1, 2),
-            new Attribute(2, 4, VertexAttribType.UnsignedByte, true));
+            new VertexBuffer.Attribute(0, 2),
+            new VertexBuffer.Attribute(1, 2),
+            new VertexBuffer.Attribute(2, 4, VertexAttribType.UnsignedByte, true));
         Mesh = new Mesh(PrimitiveType.Triangles, IndexBuffer, VertexBuffer);
 
         CreateContext();

@@ -83,8 +83,8 @@ public class Program : GameWindow
             DrawElementsType.UnsignedInt, 6);
         var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
             4, BufferUsageHint.StaticDraw,
-            new Attribute(0, 3) /*positions*/,
-            new Attribute(1, 2) /*texture coords*/);
+            new VertexBuffer.Attribute(0, 3) /*positions*/,
+            new VertexBuffer.Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
 
         ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 2));
