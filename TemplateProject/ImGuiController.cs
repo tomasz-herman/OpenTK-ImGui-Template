@@ -76,6 +76,7 @@ public unsafe class ImGuiController : IDisposable
         IntPtr context = ImGui.CreateContext();
         ImGui.SetCurrentContext(context);
         RecreateFontDeviceTexture();
+        SetupClipboard();
         var io = ImGui.GetIO();
         io.Fonts.AddFontDefault();
         io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
@@ -87,10 +88,10 @@ public unsafe class ImGuiController : IDisposable
         _windowHeight = height;
     }
 
-    public void SetupClipboard(GameWindow wnd)
+    public void SetupClipboard()
     {
         var io = ImGui.GetIO();
-        io.ClipboardUserData = wnd.Context.WindowPtr;
+        io.ClipboardUserData = new IntPtr(GLFW.GetCurrentContext());
         delegate*<Window*, byte*> getClipboard = &GLFW.GetClipboardStringRaw;
         io.GetClipboardTextFn = new IntPtr(getClipboard);
         delegate*<Window*, byte*, void> setClipboard = &GLFW.SetClipboardStringRaw;

@@ -65,7 +65,6 @@ public class Program : GameWindow
 
         Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
-        ImGuiController.SetupClipboard(this);
 
         Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
 
