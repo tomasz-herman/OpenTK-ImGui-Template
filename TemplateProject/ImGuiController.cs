@@ -219,22 +219,17 @@ public unsafe class ImGuiController : IDisposable
 
         public static GLState SaveState()
         {
-            int[] blendEquationMode = new int[1];
-            int[] blendingFactorSource = new int[1];
-            int[] blendingFactorDest = new int[1];
-            GL.GetInteger(GetPName.BlendEquationRgb, blendEquationMode);
-            GL.GetInteger(GetPName.BlendSrc, blendingFactorSource);
-            GL.GetInteger(GetPName.BlendDst, blendingFactorDest);
-            return new GLState
+            GLState state = new GLState
             {
                 _blend = GL.IsEnabled(EnableCap.Blend),
                 _scissorTest = GL.IsEnabled(EnableCap.ScissorTest),
                 _cullFace = GL.IsEnabled(EnableCap.CullFace),
-                _depthTest = GL.IsEnabled(EnableCap.DepthTest),
-                _blendEquationMode = (BlendEquationMode)blendEquationMode[0],
-                _blendingFactorSource = (BlendingFactor)blendingFactorSource[0],
-                _blendingFactorDest = (BlendingFactor)blendingFactorDest[0]
+                _depthTest = GL.IsEnabled(EnableCap.DepthTest)
             };
+            GL.GetInteger(GetPName.BlendEquationRgb, (int*)&state._blendEquationMode);
+            GL.GetInteger(GetPName.BlendSrc, (int*)&state._blendingFactorSource);
+            GL.GetInteger(GetPName.BlendDst, (int*)&state._blendingFactorDest);
+            return state;
         }
 
         public static void RestoreState(GLState state)
