@@ -190,9 +190,7 @@ public class VertexBuffer : Buffer
         GL.VertexArrayVertexBuffer(vao, index, Handle, IntPtr.Zero, stride);
         foreach (var attrib in Attributes)
         {
-            GL.EnableVertexArrayAttrib(vao, attrib.Index);
-            GL.VertexArrayAttribBinding(vao, attrib.Index, index);
-            GL.VertexArrayAttribFormat(vao, attrib.Index, attrib.Count, attrib.Type, attrib.Normalized, attrib.Offset);
+            attrib.Load(vao, index);
         }
     }
 
@@ -231,6 +229,27 @@ public class VertexBuffer : Buffer
             Normalized = normalized;
             Stride = stride;
             Offset = offset;
+        }
+
+        public virtual void Load(int vao, int index)
+        {
+            GL.EnableVertexArrayAttrib(vao, Index);
+            GL.VertexArrayAttribBinding(vao, Index, index);
+            GL.VertexArrayAttribFormat(vao, Index, Count, Type, Normalized, Offset);
+        }
+    }
+
+    public class IntegerAttribute : Attribute
+    {
+        public IntegerAttribute(int index, int count, VertexAttribType type = VertexAttribType.Int, int stride = 0, int offset = 0) : base(index, count, type, false, stride, offset)
+        {
+        }
+        
+        public override void Load(int vao, int index)
+        {
+            GL.EnableVertexArrayAttrib(vao, Index);
+            GL.VertexArrayAttribBinding(vao, Index, index);
+            GL.VertexArrayAttribIFormat(vao, Index, Count, Type, Offset);
         }
     }
 }
