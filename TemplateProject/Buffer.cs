@@ -185,7 +185,7 @@ public class VertexBuffer : Buffer
         {
             Attributes[i].Offset = offset;
             Attributes[i].Stride = stride;
-            offset += Attributes[index].Size;
+            offset += Attributes[i].Size;
         }
         GL.VertexArrayVertexBuffer(vao, index, Handle, IntPtr.Zero, stride);
         foreach (var attrib in Attributes)
