@@ -29,7 +29,7 @@ public class State : IDisposable
         }
         GC.SuppressFinalize(this);
     }
-    
+
     public interface IAttribute
     {
         public void SaveState();
@@ -53,11 +53,11 @@ public class State : IDisposable
 
         public void RestoreState()
         {
-            if(Value) GL.Enable(Cap);
+            if (Value) GL.Enable(Cap);
             else GL.Disable(Cap);
         }
     }
-    
+
     public class Texture2D : IAttribute
     {
         private int _activeTexture;
@@ -75,7 +75,7 @@ public class State : IDisposable
             GL.BindTexture(TextureTarget.Texture2D, _texture);
         }
     }
-    
+
     public class Program : IAttribute
     {
         private int _program;
@@ -90,7 +90,7 @@ public class State : IDisposable
             if (_program == 0 || GL.IsProgram(_program)) GL.UseProgram(_program);
         }
     }
-    
+
     public class ElementArrayBuffer : IAttribute
     {
         private int _buffer;
@@ -105,7 +105,7 @@ public class State : IDisposable
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _buffer);
         }
     }
-        
+
     public class ArrayBuffer : IAttribute
     {
         private int _buffer;
@@ -120,7 +120,7 @@ public class State : IDisposable
             GL.BindBuffer(BufferTarget.ArrayBuffer, _buffer);
         }
     }
-        
+
     public class VertexArrayObject : IAttribute
     {
         private int _array;
@@ -135,12 +135,12 @@ public class State : IDisposable
             GL.BindVertexArray(_array);
         }
     }
-    
+
     public class Sampler : IAttribute
     {
         private int _sampler;
         private readonly int _unit;
-        
+
         public Sampler(int unit)
         {
             _unit = unit;
@@ -174,7 +174,7 @@ public class State : IDisposable
             GL.Scissor(_scissorBox[0], _scissorBox[1], _scissorBox[2], _scissorBox[3]);
         }
     }
-    
+
     public class PolygonMode : IAttribute
     {
         private readonly int[] _polygonMode = new int[2];
@@ -189,7 +189,7 @@ public class State : IDisposable
             GL.PolygonMode(MaterialFace.FrontAndBack, (OpenTK.Graphics.OpenGL4.PolygonMode)_polygonMode[0]);
         }
     }
-    
+
     public class Viewport : IAttribute
     {
         private readonly int[] _viewport = new int[4];
@@ -230,7 +230,7 @@ public class State : IDisposable
         {
             BlendCap.RestoreState();
             GL.BlendEquationSeparate((BlendEquationMode)_blendEquationRgb, (BlendEquationMode)_blendEquationAlpha);
-            GL.BlendFuncSeparate((BlendingFactorSrc)_blendSrcRgb, (BlendingFactorDest)_blendDstRgb, 
+            GL.BlendFuncSeparate((BlendingFactorSrc)_blendSrcRgb, (BlendingFactorDest)_blendDstRgb,
                 (BlendingFactorSrc)_blendSrcAlpha, (BlendingFactorDest)_blendDstAlpha);
         }
     }

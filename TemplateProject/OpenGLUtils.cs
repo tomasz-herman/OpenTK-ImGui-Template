@@ -16,7 +16,7 @@ public static class OpenGLUtils
                 Debugger.Break();
             }
 
-            Debug.Print($"Error: {error.ToString()}({(int) error})");
+            Debug.Print($"Error: {error.ToString()}({(int)error})");
         }
     }
 }

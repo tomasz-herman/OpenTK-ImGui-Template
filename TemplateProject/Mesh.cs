@@ -43,26 +43,26 @@ public class Mesh : IDisposable, IBindable
     {
         GL.DrawArrays(Type, 0, VertexBuffers[0].Count);
     }
-    
+
     public void Render(int offset, int count)
-    { 
+    {
         GL.DrawArrays(Type, offset, count);
     }
 
     public void RenderIndexed()
     {
         if (IndexBuffer is null) throw new InvalidOperationException("Index Buffer is null");
-        
+
         GL.DrawElements(Type, IndexBuffer.Count, IndexBuffer.ElementsType, 0);
     }
 
     public void RenderIndexed(int offset, int count, int vertexOffset = 0)
     {
         if (IndexBuffer is null) throw new InvalidOperationException("Index Buffer is null");
-        
-        if(vertexOffset == 0) 
+
+        if (vertexOffset == 0)
             GL.DrawElements(Type, count, IndexBuffer.ElementsType, offset);
-        else 
+        else
             GL.DrawElementsBaseVertex(Type, count, IndexBuffer.ElementsType, offset, vertexOffset);
     }
 

@@ -15,7 +15,19 @@ public unsafe class ImGuiController : IDisposable
     private Mesh Mesh { get; }
     private IndexBuffer IndexBuffer { get; }
     private VertexBuffer VertexBuffer { get; }
-    private Dictionary<Keys, ImGuiKey> KeyMappings { get; } = new (){
+    private Dictionary<Keys, ImGuiKey> ModKeyMappings { get; } = new()
+    {
+        [Keys.LeftControl] = ImGuiKey.ModCtrl,
+        [Keys.RightControl] = ImGuiKey.ModCtrl,
+        [Keys.LeftShift] = ImGuiKey.ModShift,
+        [Keys.RightShift] = ImGuiKey.ModShift,
+        [Keys.LeftAlt] = ImGuiKey.ModAlt,
+        [Keys.RightAlt] = ImGuiKey.ModAlt,
+        [Keys.LeftSuper] = ImGuiKey.ModSuper,
+        [Keys.RightSuper] = ImGuiKey.ModSuper,
+    };
+    private Dictionary<Keys, ImGuiKey> KeyMappings { get; } = new()
+    {
         [Keys.Tab] = ImGuiKey.Tab,
         [Keys.Left] = ImGuiKey.LeftArrow,
         [Keys.Right] = ImGuiKey.RightArrow,
@@ -30,23 +42,111 @@ public unsafe class ImGuiController : IDisposable
         [Keys.Backspace] = ImGuiKey.Backspace,
         [Keys.Enter] = ImGuiKey.Enter,
         [Keys.Escape] = ImGuiKey.Escape,
-        [Keys.LeftControl] = ImGuiKey.ModCtrl,
-        [Keys.RightControl] = ImGuiKey.ModCtrl,
-        [Keys.LeftShift] = ImGuiKey.ModShift,
-        [Keys.RightShift] = ImGuiKey.ModShift,
-        [Keys.LeftAlt] = ImGuiKey.ModAlt,
-        [Keys.RightAlt] = ImGuiKey.ModAlt,
-        [Keys.LeftSuper] = ImGuiKey.ModSuper,
-        [Keys.RightSuper] = ImGuiKey.ModSuper,
+        [Keys.LeftControl] = ImGuiKey.LeftCtrl,
+        [Keys.RightControl] = ImGuiKey.RightCtrl,
+        [Keys.LeftShift] = ImGuiKey.LeftShift,
+        [Keys.RightShift] = ImGuiKey.RightShift,
+        [Keys.LeftAlt] = ImGuiKey.LeftAlt,
+        [Keys.RightAlt] = ImGuiKey.RightAlt,
+        [Keys.LeftSuper] = ImGuiKey.LeftSuper,
+        [Keys.RightSuper] = ImGuiKey.RightSuper,
+        [Keys.Apostrophe] = ImGuiKey.Apostrophe,
+        [Keys.Comma] = ImGuiKey.Comma,
+        [Keys.Minus] = ImGuiKey.Minus,
+        [Keys.Period] = ImGuiKey.Period,
+        [Keys.Slash] = ImGuiKey.Slash,
+        [Keys.Semicolon] = ImGuiKey.Semicolon,
+        [Keys.Equal] = ImGuiKey.Equal,
+        [Keys.LeftBracket] = ImGuiKey.LeftBracket,
+        [Keys.Backslash] = ImGuiKey.Backslash,
+        [Keys.RightBracket] = ImGuiKey.RightBracket,
+        [Keys.GraveAccent] = ImGuiKey.GraveAccent,
+        [Keys.CapsLock] = ImGuiKey.CapsLock,
+        [Keys.ScrollLock] = ImGuiKey.ScrollLock,
+        [Keys.NumLock] = ImGuiKey.NumLock,
+        [Keys.PrintScreen] = ImGuiKey.PrintScreen,
+        [Keys.Pause] = ImGuiKey.Pause,
+        [Keys.KeyPad0] = ImGuiKey.Keypad0,
+        [Keys.KeyPad1] = ImGuiKey.Keypad1,
+        [Keys.KeyPad2] = ImGuiKey.Keypad2,
+        [Keys.KeyPad3] = ImGuiKey.Keypad3,
+        [Keys.KeyPad4] = ImGuiKey.Keypad4,
+        [Keys.KeyPad5] = ImGuiKey.Keypad5,
+        [Keys.KeyPad6] = ImGuiKey.Keypad6,
+        [Keys.KeyPad7] = ImGuiKey.Keypad7,
+        [Keys.KeyPad8] = ImGuiKey.Keypad8,
+        [Keys.KeyPad9] = ImGuiKey.Keypad9,
+        [Keys.KeyPadDecimal] = ImGuiKey.KeypadDecimal,
+        [Keys.KeyPadDivide] = ImGuiKey.KeypadDivide,
+        [Keys.KeyPadMultiply] = ImGuiKey.KeypadMultiply,
+        [Keys.KeyPadSubtract] = ImGuiKey.KeypadSubtract,
+        [Keys.KeyPadAdd] = ImGuiKey.KeypadAdd,
+        [Keys.KeyPadEnter] = ImGuiKey.KeypadEnter,
+        [Keys.KeyPadEqual] = ImGuiKey.KeypadEqual,
+        [Keys.Menu] = ImGuiKey.Menu,
+        [Keys.D0] = ImGuiKey._0,
+        [Keys.D1] = ImGuiKey._1,
+        [Keys.D2] = ImGuiKey._2,
+        [Keys.D3] = ImGuiKey._3,
+        [Keys.D4] = ImGuiKey._4,
+        [Keys.D5] = ImGuiKey._5,
+        [Keys.D6] = ImGuiKey._6,
+        [Keys.D7] = ImGuiKey._7,
+        [Keys.D8] = ImGuiKey._8,
+        [Keys.D9] = ImGuiKey._9,
         [Keys.A] = ImGuiKey.A,
+        [Keys.B] = ImGuiKey.B,
         [Keys.C] = ImGuiKey.C,
+        [Keys.D] = ImGuiKey.D,
+        [Keys.E] = ImGuiKey.E,
+        [Keys.F] = ImGuiKey.F,
+        [Keys.G] = ImGuiKey.G,
+        [Keys.H] = ImGuiKey.H,
+        [Keys.I] = ImGuiKey.I,
+        [Keys.J] = ImGuiKey.J,
+        [Keys.K] = ImGuiKey.K,
+        [Keys.L] = ImGuiKey.L,
+        [Keys.M] = ImGuiKey.M,
+        [Keys.N] = ImGuiKey.N,
+        [Keys.O] = ImGuiKey.O,
+        [Keys.P] = ImGuiKey.P,
+        [Keys.Q] = ImGuiKey.Q,
+        [Keys.R] = ImGuiKey.R,
+        [Keys.S] = ImGuiKey.S,
+        [Keys.T] = ImGuiKey.T,
+        [Keys.U] = ImGuiKey.U,
         [Keys.V] = ImGuiKey.V,
+        [Keys.W] = ImGuiKey.W,
         [Keys.X] = ImGuiKey.X,
         [Keys.Y] = ImGuiKey.Y,
-        [Keys.Z] = ImGuiKey.Z
+        [Keys.Z] = ImGuiKey.Z,
+        [Keys.F1] = ImGuiKey.F1,
+        [Keys.F2] = ImGuiKey.F2,
+        [Keys.F3] = ImGuiKey.F3,
+        [Keys.F4] = ImGuiKey.F4,
+        [Keys.F5] = ImGuiKey.F5,
+        [Keys.F6] = ImGuiKey.F6,
+        [Keys.F7] = ImGuiKey.F7,
+        [Keys.F8] = ImGuiKey.F8,
+        [Keys.F9] = ImGuiKey.F9,
+        [Keys.F10] = ImGuiKey.F10,
+        [Keys.F11] = ImGuiKey.F11,
+        [Keys.F12] = ImGuiKey.F12,
+        [Keys.F13] = ImGuiKey.F13,
+        [Keys.F14] = ImGuiKey.F14,
+        [Keys.F15] = ImGuiKey.F15,
+        [Keys.F16] = ImGuiKey.F16,
+        [Keys.F17] = ImGuiKey.F17,
+        [Keys.F18] = ImGuiKey.F18,
+        [Keys.F19] = ImGuiKey.F19,
+        [Keys.F20] = ImGuiKey.F20,
+        [Keys.F21] = ImGuiKey.F21,
+        [Keys.F22] = ImGuiKey.F22,
+        [Keys.F23] = ImGuiKey.F23,
+        [Keys.F24] = ImGuiKey.F24
     };
 
-    private State State { get; } = new (
+    private State State { get; } = new(
         new State.Texture2D(),
         new State.Program(),
         new State.Sampler(0),
@@ -181,17 +281,8 @@ public unsafe class ImGuiController : IDisposable
         var point = screenPoint;//wnd.PointToClient(screenPoint);
         io.MousePos = new System.Numerics.Vector2(point.X / ScaleFactor.X, point.Y / ScaleFactor.Y);
 
-        foreach (var (key, imKey) in KeyMappings)
-        {
-            if(!keyboard.WasKeyDown(key) && keyboard.IsKeyDown(key))
-            {
-                io.AddKeyEvent(imKey, true);
-            }
-            else if(keyboard.WasKeyDown(key) && !keyboard.IsKeyDown(key))
-            {
-                io.AddKeyEvent(imKey, false);
-            }
-        }
+        AddKeyEvents(io, KeyMappings, keyboard);
+        AddKeyEvents(io, ModKeyMappings, keyboard);
 
         foreach (var c in PressedChars)
         {
@@ -200,7 +291,22 @@ public unsafe class ImGuiController : IDisposable
         PressedChars.Clear();
     }
 
-    internal void PressChar(char keyChar)
+    private void AddKeyEvents(ImGuiIOPtr io, Dictionary<Keys, ImGuiKey> mapping, KeyboardState keyboard)
+    {
+        foreach (var (key, imKey) in mapping)
+        {
+            if (!keyboard.WasKeyDown(key) && keyboard.IsKeyDown(key))
+            {
+                io.AddKeyEvent(imKey, true);
+            }
+            else if (keyboard.WasKeyDown(key) && !keyboard.IsKeyDown(key))
+            {
+                io.AddKeyEvent(imKey, false);
+            }
+        }
+    }
+
+    public void PressChar(char keyChar)
     {
         PressedChars.Add(keyChar);
     }
@@ -270,7 +376,7 @@ public unsafe class ImGuiController : IDisposable
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);
         GL.BlendEquation(BlendEquationMode.FuncAdd);
-        GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, 
+        GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha,
             BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
         GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
 
@@ -303,7 +409,7 @@ public unsafe class ImGuiController : IDisposable
             vtxOffset += cmdList.VtxBuffer.Size;
         }
     }
-    
+
     public void Dispose()
     {
         GC.SuppressFinalize(this);

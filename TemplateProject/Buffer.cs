@@ -8,19 +8,19 @@ public abstract class Buffer : IBindable, IDisposable
     public abstract BufferTarget Target { get; }
     public BufferUsageHint Usage { get; protected set; }
     public int Handle { get; protected set; }
-    
+
     public Buffer(BufferUsageHint usage)
     {
         GL.CreateBuffers(1, out int handle);
         Handle = handle;
         Usage = usage;
     }
-    
+
     public void Allocate(int size)
     {
         GL.NamedBufferData(Handle, size, IntPtr.Zero, Usage);
     }
-    
+
     public void Load(Array data, int size)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
@@ -54,7 +54,7 @@ public abstract class Buffer : IBindable, IDisposable
     {
         GL.UnmapNamedBuffer(Handle);
     }
-    
+
     public void Bind()
     {
         GL.BindBuffer(Target, Handle);
