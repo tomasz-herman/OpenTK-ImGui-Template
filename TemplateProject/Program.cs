@@ -124,7 +124,7 @@ public class Program : GameWindow
     {
         base.OnUpdateFrame(args);
 
-        ImGuiController.Update(this, (float)args.Time);
+        ImGuiController.Update((float)args.Time);
         Camera.Update((float)args.Time);
 
         if (ImGui.GetIO().WantCaptureMouse) return;
@@ -157,6 +157,41 @@ public class Program : GameWindow
         RenderGui();
 
         Context.SwapBuffers();
+    }
+
+    protected override void OnKeyDown(KeyboardKeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        ImGuiController.OnKey(e, true);
+    }
+
+    protected override void OnKeyUp(KeyboardKeyEventArgs e)
+    {
+        base.OnKeyUp(e);
+
+        ImGuiController.OnKey(e, false);
+    }
+
+    protected override void OnMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseDown(e);
+
+        ImGuiController.OnMouseButton(e);
+    }
+
+    protected override void OnMouseUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseUp(e);
+
+        ImGuiController.OnMouseButton(e);
+    }
+
+    protected override void OnMouseMove(MouseMoveEventArgs e)
+    {
+        base.OnMouseMove(e);
+
+        ImGuiController.OnMouseMove(e);
     }
 
     private static int _control;
@@ -198,14 +233,14 @@ public class Program : GameWindow
     {
         base.OnTextInput(e);
 
-        ImGuiController.PressChar((char)e.Unicode);
+        ImGuiController.OnPressedChar((char)e.Unicode);
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
 
-        ImGuiController.MouseScroll(e.Offset);
+        ImGuiController.OnMouseScroll(e);
     }
 
     private static void OnDebugMessage(

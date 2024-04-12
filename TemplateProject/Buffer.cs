@@ -244,7 +244,7 @@ public class VertexBuffer : Buffer
         public IntegerAttribute(int index, int count, VertexAttribType type = VertexAttribType.Int, int stride = 0, int offset = 0) : base(index, count, type, false, stride, offset)
         {
         }
-        
+
         public override void Load(int vao, int index)
         {
             GL.EnableVertexArrayAttrib(vao, Index);

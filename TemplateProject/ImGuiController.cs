@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -240,15 +241,14 @@ public unsafe class ImGuiController : IDisposable
         }
     }
 
-    public void Update(GameWindow wnd, float deltaSeconds)
+    public void Update(float dt)
     {
         if (_frameBegun)
         {
             ImGui.Render();
         }
 
-        SetPerFrameImGuiData(deltaSeconds);
-        UpdateImGuiInput(wnd);
+        SetPerFrameImGuiData(dt);
 
         _frameBegun = true;
         ImGui.NewFrame();
@@ -264,59 +264,43 @@ public unsafe class ImGuiController : IDisposable
         io.DeltaTime = deltaSeconds; // DeltaTime is in seconds.
     }
 
-    private List<char> PressedChars { get; } = new();
-
-    private void UpdateImGuiInput(GameWindow wnd)
+    public void OnMouseMove(MouseMoveEventArgs e)
     {
         ImGuiIOPtr io = ImGui.GetIO();
-
-        MouseState mouse = wnd.MouseState;
-        KeyboardState keyboard = wnd.KeyboardState;
-
-        io.MouseDown[0] = mouse[MouseButton.Left];
-        io.MouseDown[1] = mouse[MouseButton.Right];
-        io.MouseDown[2] = mouse[MouseButton.Middle];
-
-        var screenPoint = new Vector2i((int)mouse.X, (int)mouse.Y);
-        var point = screenPoint;//wnd.PointToClient(screenPoint);
-        io.MousePos = new System.Numerics.Vector2(point.X / ScaleFactor.X, point.Y / ScaleFactor.Y);
-
-        AddKeyEvents(io, KeyMappings, keyboard);
-        AddKeyEvents(io, ModKeyMappings, keyboard);
-
-        foreach (var c in PressedChars)
-        {
-            io.AddInputCharacter(c);
-        }
-        PressedChars.Clear();
+        io.AddMousePosEvent(e.X, e.Y);
     }
 
-    private void AddKeyEvents(ImGuiIOPtr io, Dictionary<Keys, ImGuiKey> mapping, KeyboardState keyboard)
+    public void OnMouseButton(MouseButtonEventArgs e)
     {
-        foreach (var (key, imKey) in mapping)
+        ImGuiIOPtr io = ImGui.GetIO();
+        var button = (int)e.Button;
+        if (button is >= 0 and < (int)ImGuiMouseButton.COUNT)
+            io.AddMouseButtonEvent(button, e.Action == InputAction.Press);
+    }
+
+    public void OnKey(KeyboardKeyEventArgs e, bool down)
+    {
+        ImGuiIOPtr io = ImGui.GetIO();
+        if (KeyMappings.TryGetValue(e.Key, out var key))
         {
-            if (!keyboard.WasKeyDown(key) && keyboard.IsKeyDown(key))
-            {
-                io.AddKeyEvent(imKey, true);
-            }
-            else if (keyboard.WasKeyDown(key) && !keyboard.IsKeyDown(key))
-            {
-                io.AddKeyEvent(imKey, false);
-            }
+            io.AddKeyEvent(key, down);
+        }
+        if (ModKeyMappings.TryGetValue(e.Key, out var modKey))
+        {
+            io.AddKeyEvent(modKey, down);
         }
     }
 
-    public void PressChar(char keyChar)
-    {
-        PressedChars.Add(keyChar);
-    }
-
-    internal void MouseScroll(Vector2 offset)
+    public void OnPressedChar(char keyChar)
     {
         ImGuiIOPtr io = ImGui.GetIO();
+        io.AddInputCharacter(keyChar);
+    }
 
-        io.MouseWheel = offset.Y;
-        io.MouseWheelH = offset.X;
+    internal void OnMouseScroll(MouseWheelEventArgs e)
+    {
+        ImGuiIOPtr io = ImGui.GetIO();
+        io.AddMouseWheelEvent(e.OffsetX, e.OffsetY);
     }
 
     private void RenderImDrawData(ImDrawDataPtr drawData)
