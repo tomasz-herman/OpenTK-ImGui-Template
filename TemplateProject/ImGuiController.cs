@@ -199,13 +199,13 @@ public unsafe class ImGuiController : IDisposable
         io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
     }
 
-    public void WindowResized(int width, int height)
+    public void OnWindowResized(int width, int height)
     {
         _windowWidth = width;
         _windowHeight = height;
     }
 
-    public void SetupClipboard()
+    private void SetupClipboard()
     {
         var io = ImGui.GetIO();
         io.ClipboardUserData = new IntPtr(GLFW.GetCurrentContext());
@@ -215,7 +215,7 @@ public unsafe class ImGuiController : IDisposable
         io.SetClipboardTextFn = new IntPtr(setClipboard);
     }
 
-    public void RecreateFontDeviceTexture()
+    private void RecreateFontDeviceTexture()
     {
         ImGuiIOPtr io = ImGui.GetIO();
         io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out int width, out int height);
@@ -297,7 +297,7 @@ public unsafe class ImGuiController : IDisposable
         io.AddInputCharacter(keyChar);
     }
 
-    internal void OnMouseScroll(MouseWheelEventArgs e)
+    public void OnMouseScroll(MouseWheelEventArgs e)
     {
         ImGuiIOPtr io = ImGui.GetIO();
         io.AddMouseWheelEvent(e.OffsetX, e.OffsetY);

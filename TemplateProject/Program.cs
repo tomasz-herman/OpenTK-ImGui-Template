@@ -116,7 +116,7 @@ public class Program : GameWindow
 
         base.OnResize(e);
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-        ImGuiController.WindowResized(ClientSize.X, ClientSize.Y);
+        ImGuiController.OnWindowResized(ClientSize.X, ClientSize.Y);
         Camera.Aspect = (float)ClientSize.X / ClientSize.Y;
     }
 
