@@ -115,42 +115,73 @@ public class Shader : IDisposable
 
     public void LoadInteger(string name, int value)
     {
-        GL.Uniform1(GetUniformLocation(name), value);
+        GL.ProgramUniform1(Handle, GetUniformLocation(name), value);
     }
 
     public void LoadFloat(string name, float value)
     {
-        GL.Uniform1(GetUniformLocation(name), value);
+        GL.ProgramUniform1(Handle, GetUniformLocation(name), value);
+    }
+    
+    public void LoadFloat2(string name, Vector2 value)
+    {
+        GL.ProgramUniform2(Handle, GetUniformLocation(name), ref value);
+    }
+    
+    public void LoadFloat2(string name, ref Vector2 value)
+    {
+        GL.ProgramUniform2(Handle, GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat3(string name, Vector3 value)
     {
-        GL.Uniform3(GetUniformLocation(name), ref value);
+        GL.ProgramUniform3(Handle, GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat3(string name, ref Vector3 value)
     {
-        GL.Uniform3(GetUniformLocation(name), ref value);
+        GL.ProgramUniform3(Handle, GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat4(string name, Vector4 value)
     {
-        GL.Uniform4(GetUniformLocation(name), ref value);
+        GL.ProgramUniform4(Handle, GetUniformLocation(name), ref value);
     }
 
     public void LoadFloat4(string name, ref Vector4 value)
     {
-        GL.Uniform4(GetUniformLocation(name), ref value);
+        GL.ProgramUniform4(Handle, GetUniformLocation(name), ref value);
+    }
+
+    public void LoadMatrix2(string name, Matrix2 value, bool transpose = false)
+    {
+        GL.ProgramUniformMatrix2(Handle, GetUniformLocation(name), transpose, ref value);
+    }
+    
+    public void LoadMatrix2(string name, ref Matrix2 value, bool transpose = false)
+    {
+        GL.ProgramUniformMatrix2(Handle, GetUniformLocation(name), transpose, ref value);
+    }
+
+    public void LoadMatrix3(string name, Matrix3 value, bool transpose = false)
+    {
+        GL.ProgramUniformMatrix3(Handle, GetUniformLocation(name), transpose, ref value);
+    }
+
+
+    public void LoadMatrix3(string name, ref Matrix3 value, bool transpose = false)
+    {
+        GL.ProgramUniformMatrix3(Handle, GetUniformLocation(name), transpose, ref value);
     }
 
     public void LoadMatrix4(string name, Matrix4 value, bool transpose = false)
     {
-        GL.UniformMatrix4(GetUniformLocation(name), transpose, ref value);
+        GL.ProgramUniformMatrix4(Handle, GetUniformLocation(name), transpose, ref value);
     }
 
     public void LoadMatrix4(string name, ref Matrix4 value, bool transpose = false)
     {
-        GL.UniformMatrix4(GetUniformLocation(name), transpose, ref value);
+        GL.ProgramUniformMatrix4(Handle, GetUniformLocation(name), transpose, ref value);
     }
 
     public void Dispatch(int x, int y, int z)
