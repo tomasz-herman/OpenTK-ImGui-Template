@@ -1,4 +1,6 @@
+using System.Numerics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using OpenTK.Graphics.OpenGL4;
 using StbImageSharp;
@@ -12,23 +14,18 @@ public class Texture : IDisposable, IBindable
 
     public Texture()
     {
-        Handle = GL.GenTexture();
+        GL.CreateTextures(TextureTarget.Texture2D, 1, out int handle);
+        Handle = handle;
     }
 
-    public Texture(string path, bool resource = true, Options? options = null, bool generateMipmaps = true)
+    public Texture(string path, bool resource = true, Options? options = null, bool generateMipmaps = true) : this()
     {
-        Handle = GL.GenTexture();
-
-        Bind();
-
         if (resource) LoadDataFromResources(path);
         else LoadDataFromFile(path);
 
         ApplyOptions(options ?? Options.Default);
 
         if (generateMipmaps) GenerateMipmaps();
-
-        Unbind();
     }
 
     public void LoadDataFromResources(string path)
@@ -38,8 +35,8 @@ public class Texture : IDisposable, IBindable
 
         ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 
-        LoadData(image.Data, image.Width, image.Height,
-            PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
+        Allocate(image.Width, image.Height, SizedInternalFormat.Rgba8);
+        Update(image.Data, 0, 0, image.Width, image.Height, PixelFormat.Rgba, PixelType.UnsignedByte);
     }
 
     public void LoadDataFromFile(string path)
@@ -48,107 +45,56 @@ public class Texture : IDisposable, IBindable
 
         ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 
-        LoadData(image.Data, image.Width, image.Height,
-            PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
+        Allocate(image.Width, image.Height, SizedInternalFormat.Rgba8);
+        Update(image.Data, 0, 0, image.Width, image.Height, PixelFormat.Rgba, PixelType.UnsignedByte);
     }
 
-    public void LoadData<T>(T[] data, int width, int height,
-        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0)
-        where T : struct
+    public void Allocate(int width, int height, SizedInternalFormat internalFormat, int levels = -1)
     {
-        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat,
-            width, height, 0, format, type, data);
+        if (levels < 0) levels = BitOperations.Log2((uint)Math.Max(width, height));
+        GL.TextureStorage2D(Handle, levels, internalFormat, width, height);
+    }
+    
+    public void Update(Array data, int x, int y, int width, int height, PixelFormat format, PixelType pixelType, int level = 0)
+    {
+        var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        Update(gcHandle.AddrOfPinnedObject(), x, y, width, height, format, pixelType, level);
+        gcHandle.Free();
+    }
+    
+    public void Update(IntPtr data, int x, int y, int width, int height, PixelFormat format, PixelType pixelType, int level = 0)
+    {
+        GL.TextureSubImage2D(Handle, level, x, y, width, height, format, pixelType, data);
     }
 
-    public void LoadData<T>(T[,] data, int width, int height,
-        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0)
-        where T : struct
+    public void ReadData(Array data, int bufferSize, PixelFormat format, PixelType type, int level = 0)
     {
-        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat,
-            width, height, 0, format, type, data);
+        var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        ReadData(gcHandle.AddrOfPinnedObject(), bufferSize, format, type, level);
+        gcHandle.Free();    
     }
 
-    public void LoadData<T>(T[,,] data, int width, int height,
-        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0)
-        where T : struct
+    public void ReadData(IntPtr data, int bufferSize, PixelFormat format, PixelType type, int level = 0)
     {
-        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat,
-            width, height, 0, format, type, data);
-    }
-
-    public void LoadData(IntPtr data, int width, int height,
-        PixelInternalFormat internalFormat, PixelFormat format, PixelType type, int level = 0)
-    {
-        GL.TexImage2D(TextureTarget.Texture2D, level, internalFormat,
-            width, height, 0, format, type, data);
-    }
-
-    public void UpdateData<T>(T[] data, int xOffset, int yOffset, int width, int height,
-        PixelFormat format, PixelType type, int level = 0)
-        where T : struct
-    {
-        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
-    }
-
-    public void UpdateData<T>(T[,] data, int xOffset, int yOffset, int width, int height,
-        PixelFormat format, PixelType type, int level = 0)
-        where T : struct
-    {
-        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
-    }
-
-    public void UpdateData<T>(T[,,] data, int xOffset, int yOffset, int width, int height,
-        PixelFormat format, PixelType type, int level = 0)
-        where T : struct
-    {
-        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
-    }
-
-    public void UpdateData(IntPtr data, int xOffset, int yOffset, int width, int height,
-        PixelFormat format, PixelType type, int level = 0)
-    {
-        GL.TexSubImage2D(TextureTarget.Texture2D, level, xOffset, yOffset, width, height, format, type, data);
-    }
-
-    public void ReadData<T>(T[] data, PixelFormat format, PixelType type, int level = 0)
-        where T : struct
-    {
-        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
-    }
-
-    public void ReadData<T>(T[,] data, PixelFormat format, PixelType type, int level = 0)
-        where T : struct
-    {
-        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
-    }
-
-    public void ReadData<T>(T[,,] data, PixelFormat format, PixelType type, int level = 0)
-        where T : struct
-    {
-        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
-    }
-
-    public void ReadData(IntPtr data, PixelFormat format, PixelType type, int level = 0)
-    {
-        GL.GetTexImage(TextureTarget.Texture2D, level, format, type, data);
+        GL.GetTextureImage(Handle, level, format, type, bufferSize, data);
     }
 
     public void ApplyOptions(Options options)
     {
         foreach (var parameter in options.Parameters)
         {
-            GL.TexParameter(TextureTarget.Texture2D, parameter.Key, Convert.ToInt32(parameter.Value));
+            GL.TextureParameter(Handle, parameter.Key, Convert.ToInt32(parameter.Value));
         }
     }
 
     public void GenerateMipmaps()
     {
-        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+        GL.GenerateTextureMipmap(Handle);
     }
 
-    public void ActivateUnit(TextureUnit unit = TextureUnit.Texture0)
+    public void ActivateUnit(int unit = 0)
     {
-        GL.ActiveTexture(unit);
+        GL.BindTextureUnit(unit, Handle);
     }
 
     public void Bind()

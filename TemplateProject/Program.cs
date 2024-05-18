@@ -148,7 +148,7 @@ public class Program : GameWindow
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         Shader.Use();
-        Texture.Bind();
+        Texture.ActivateUnit();
         Shader.LoadInteger("sampler", 0);
         Shader.LoadMatrix4("mvp", ModelMatrix * Camera.ProjectionViewMatrix);
         RectangleMesh.Bind();

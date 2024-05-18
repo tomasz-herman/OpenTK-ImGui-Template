@@ -221,7 +221,8 @@ public unsafe class ImGuiController : IDisposable
         io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out int width, out int height);
 
         FontTexture.Bind();
-        FontTexture.LoadData(pixels, width, height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
+        FontTexture.Allocate(width, height, SizedInternalFormat.Rgba8);
+        FontTexture.Update(pixels, 0, 0, width, height, PixelFormat.Bgra, PixelType.UnsignedByte);
         FontTexture.ApplyOptions(
             Texture.Options.Default
                 .SetParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear));
