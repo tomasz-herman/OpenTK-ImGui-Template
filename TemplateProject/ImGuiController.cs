@@ -225,7 +225,7 @@ public unsafe class ImGuiController : IDisposable
         FontTexture.Update(pixels, 0, 0, width, height, PixelFormat.Bgra, PixelType.UnsignedByte);
         FontTexture.ApplyOptions(
             Texture.Options.Default
-                .SetParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear));
+                .SetParameter(new Texture.EnumParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)));
 
         io.Fonts.SetTexID(FontTexture.Handle);
 

@@ -81,9 +81,9 @@ public class Texture : IDisposable, IBindable
 
     public void ApplyOptions(Options options)
     {
-        foreach (var parameter in options.Parameters)
+        foreach (var parameter in options.Parameters.Values)
         {
-            GL.TextureParameter(Handle, parameter.Key, Convert.ToInt32(parameter.Value));
+            parameter.Apply(Handle);
         }
     }
 
@@ -115,33 +115,81 @@ public class Texture : IDisposable, IBindable
 
     public class Options
     {
-        public static Options Default => new(
-            (TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear),
-            (TextureParameterName.TextureMagFilter, TextureMagFilter.Linear),
-            (TextureParameterName.TextureWrapS, TextureWrapMode.Repeat),
-            (TextureParameterName.TextureWrapT, TextureWrapMode.Repeat));
+        public static Options Default => new( 
+            new EnumParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.LinearMipmapLinear),
+            new EnumParameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear),
+            new EnumParameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat),
+            new EnumParameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat));
 
-        public Dictionary<TextureParameterName, Enum> Parameters { get; } = new();
+        public Dictionary<TextureParameterName, IParameter> Parameters { get; } = new();
 
-        public Options(params (TextureParameterName name, Enum value)[] parameters)
+        public Options(params IParameter[] parameters)
         {
-            foreach (var (name, value) in parameters) SetParameter(name, value);
+            foreach (var param in parameters) SetParameter(param);
         }
 
-        public Options SetParameter(TextureParameterName name, Enum value)
+        public Options SetParameter(IParameter param)
         {
-            Parameters[name] = value;
+            Parameters[param.Name] = param;
             return this;
         }
+    }
 
-        public override string ToString()
+    public interface IParameter
+    {
+        public TextureParameterName Name { get; }
+        public void Apply(int texture);
+    }
+    
+    public class IntParameter : IParameter
+    {
+        public TextureParameterName Name { get; }
+        public int[] Value { get; }
+
+        public IntParameter(TextureParameterName name, int value)
         {
-            StringBuilder builder = new StringBuilder();
-            foreach (var (name, value) in Parameters)
-            {
-                builder.Append($"{name} : {value}\n");
-            }
-            return builder.ToString();
+            Name = name;
+            Value = new [] {value};
+        }
+
+        public IntParameter(TextureParameterName name, int[] value)
+        {
+            Name = name;
+            Value = value;
+        }
+
+        public void Apply(int texture)
+        {
+            GL.TextureParameterI(texture, Name, Value);
+        }
+    }
+
+    public class EnumParameter : IntParameter
+    {
+        public EnumParameter(TextureParameterName name, Enum value) : base(name, Convert.ToInt32(value)) { }
+    }
+
+    public class FloatParameter : IParameter
+    {
+        public TextureParameterName Name { get; }
+        public float[] Value { get; }
+
+
+        public FloatParameter(TextureParameterName name, float value)
+        {
+            Name = name;
+            Value = new [] {value};
+        }
+
+        public FloatParameter(TextureParameterName name, float[] value)
+        {
+            Name = name;
+            Value = value;
+        }
+
+        public void Apply(int texture)
+        {
+            GL.TextureParameter(texture, Name, Value);
         }
     }
 }
