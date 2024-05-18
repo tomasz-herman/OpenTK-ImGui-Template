@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -85,11 +86,17 @@ public class Shader : IDisposable
     private void InitializeUniformsMap()
     {
         GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out int uniforms);
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveUniformMaxLength, out int maxUniformLength);
         for (int i = 0; i < uniforms; i++)
         {
-            GL.GetActiveUniform(Handle, i, 64,
-                out _, out _, out _, out string name);
-            Uniforms[name] = GL.GetUniformLocation(Handle, name);
+            GL.GetActiveUniform(Handle, i, maxUniformLength,
+                out _, out int size, out _, out string nameTemplate);
+
+            for (int j = 0; j < size; j++)
+            {
+                string name = Regex.Replace(nameTemplate, @"\[0\]$", $"[{j}]");
+                Uniforms[name] = GL.GetUniformLocation(Handle, name);
+            }
         }
     }
 
@@ -136,14 +143,14 @@ public class Shader : IDisposable
         GL.Uniform4(GetUniformLocation(name), ref value);
     }
 
-    public void LoadMatrix4(string name, Matrix4 value)
+    public void LoadMatrix4(string name, Matrix4 value, bool transpose = false)
     {
-        GL.UniformMatrix4(GetUniformLocation(name), false, ref value);
+        GL.UniformMatrix4(GetUniformLocation(name), transpose, ref value);
     }
 
-    public void LoadMatrix4(string name, ref Matrix4 value)
+    public void LoadMatrix4(string name, ref Matrix4 value, bool transpose = false)
     {
-        GL.UniformMatrix4(GetUniformLocation(name), false, ref value);
+        GL.UniformMatrix4(GetUniformLocation(name), transpose, ref value);
     }
 
     public void Dispatch(int x, int y, int z)
