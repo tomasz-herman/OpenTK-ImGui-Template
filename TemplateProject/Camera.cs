@@ -92,6 +92,8 @@ public class NoControl : Camera.IControl
 
 public class OrbitingControl : Camera.IControl
 {
+    public Vector3 WorldUp { get; set; } = Vector3.UnitY;
+
     public OrbitingControl(Camera.IControl control, float distance = 1.0f)
     {
         Position = control.Position;
@@ -104,7 +106,7 @@ public class OrbitingControl : Camera.IControl
 
     public OrbitingControl(Vector3 position, Vector3 target, Vector3? up)
     {
-        up ??= Vector3.UnitY;
+        up ??= WorldUp;
         Position = position;
         Target = target;
         Front = (position - target).Normalized();
@@ -144,7 +146,7 @@ public class OrbitingControl : Camera.IControl
 
         Position = Target + toCameraVector;
         Front = (Position - Target).Normalized();
-        Right = Vector3.Cross(Up, Front).Normalized();
+        Right = Vector3.Cross(WorldUp, Front).Normalized();
         Up = Vector3.Cross(Front, Right).Normalized();
         ViewMatrix = Matrix4.LookAt(Position, Target, Up);
     }
@@ -160,6 +162,7 @@ public class OrbitingControl : Camera.IControl
 
 public class FlyByControl : Camera.IControl
 {
+    public Vector3 WorldUp { get; set; } = Vector3.UnitY;
     public FlyByControl(Camera.IControl control)
     {
         Position = control.Position;
@@ -171,7 +174,7 @@ public class FlyByControl : Camera.IControl
 
     public FlyByControl(Vector3 position, Vector3 target, Vector3? up = null)
     {
-        up ??= Vector3.UnitY;
+        up ??= WorldUp;
         Position = position;
         Front = (position - target).Normalized();
         Right = Vector3.Cross(up.Value, Front).Normalized();
@@ -231,7 +234,7 @@ public class FlyByControl : Camera.IControl
         if (move != Vector3.Zero || rotation != Vector3.Zero)
         {
             Position += move;
-            Right = Vector3.Cross(Up, Front).Normalized();
+            Right = Vector3.Cross(WorldUp, Front).Normalized();
             Up = Vector3.Cross(Front, Right).Normalized();
             ViewMatrix = Matrix4.LookAt(Position, Position - Front, Up);
         }
