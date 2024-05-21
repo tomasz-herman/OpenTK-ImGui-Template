@@ -221,7 +221,7 @@ public class Program : GameWindow
             if (ImGui.RadioButton("No Control", ref _control, 0))
                 Camera.Control = new NoControl(Camera.Control);
             if (ImGui.RadioButton("Orbital Control", ref _control, 1))
-                Camera.Control = new OrbitingControl(Camera.Control);
+                Camera.Control = new OrbitingControl(Camera.Position, Vector3.Zero);
             if (ImGui.RadioButton("FlyBy Control", ref _control, 2))
                 Camera.Control = new FlyByControl(Camera.Control);
 
@@ -234,7 +234,7 @@ public class Program : GameWindow
             if (ImGui.RadioButton("Perspective", ref _projection, 0))
                 Camera.Projection = new PerspectiveProjection { Aspect = Camera.Aspect };
             if (ImGui.RadioButton("Orthographic", ref _projection, 1))
-                Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect };
+                Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect, Height = 5 };
             ImGui.Indent(-10);
         }
 
