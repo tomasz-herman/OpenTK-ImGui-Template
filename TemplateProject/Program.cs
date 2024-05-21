@@ -79,9 +79,9 @@ public class Program : GameWindow
             1, 2, 3
         };
         var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(int),
-            DrawElementsType.UnsignedInt, 6);
+            DrawElementsType.UnsignedInt, indices.Length);
         var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
-            4, BufferUsageHint.StaticDraw,
+            vertices.Length, BufferUsageHint.StaticDraw,
             new VertexBuffer.Attribute(0, 3) /*positions*/,
             new VertexBuffer.Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
