@@ -12,12 +12,10 @@ namespace TemplateProject;
 public struct Vertex
 {
     public Vector3 Position;
-    public Vector2 TexCoord;
 
-    public Vertex(Vector3 position, Vector2 texCoord)
+    public Vertex(Vector3 position)
     {
         Position = position;
-        TexCoord = texCoord;
     }
 }
 
@@ -27,7 +25,7 @@ public class Program : GameWindow
 
     private Shader Shader { get; set; }
     private ImGuiController ImGuiController { get; set; }
-    private Mesh RectangleMesh { get; set; }
+    private Mesh CubeWireframeMesh { get; set; }
     private Matrix4 ModelMatrix { get; set; }
     private Camera Camera { get; set; }
     private Texture Texture { get; set; }
@@ -66,31 +64,33 @@ public class Program : GameWindow
         Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
-        Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
+        Camera = new Camera(new NoControl(5 * Vector3.UnitZ, Vector3.Zero), new PerspectiveProjection());
 
         Vertex[] vertices = {
-            new(new Vector3(0.5f, 0.5f, 0.0f), new Vector2(0.0f, 0.0f)),
-            new(new Vector3(0.5f, -0.5f, 0.0f), new Vector2(0.0f, 1.0f)),
-            new(new Vector3(-0.5f, -0.5f, 0.0f), new Vector2(1.0f, 1.0f)),
-            new(new Vector3(-0.5f, 0.5f, 0.0f), new Vector2(1.0f, 0.0f))
+            new(new Vector3(0.5f, 0.5f, 0.5f)),
+            new(new Vector3(-0.5f, 0.5f, 0.5f)),
+            new(new Vector3(0.5f, -0.5f, 0.5f)),
+            new(new Vector3(0.5f, 0.5f, -0.5f)),
+            new(new Vector3(-0.5f, -0.5f, 0.5f)),
+            new(new Vector3(-0.5f, 0.5f, -0.5f)),
+            new(new Vector3(0.5f, -0.5f, -0.5f)),
+            new(new Vector3(-0.5f, -0.5f, -0.5f))
         };
-        int[] indices = {
-            0, 1, 3,
-            1, 2, 3
+        byte[] indices = {
+            0, 1, 0, 2, 0, 3, 1, 4, 1, 5, 2, 4, 2, 6, 3, 5, 3, 6, 4, 7, 5, 7, 6, 7
         };
-        var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(int),
-            DrawElementsType.UnsignedInt, 6);
+        var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(byte),
+            DrawElementsType.UnsignedByte, indices.Length);
         var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
-            4, BufferUsageHint.StaticDraw,
-            new VertexBuffer.Attribute(0, 3) /*positions*/,
-            new VertexBuffer.Attribute(1, 2) /*texture coords*/);
-        RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
+            vertices.Length, BufferUsageHint.StaticDraw,
+            new VertexBuffer.Attribute(0, 3) /*positions*/);
+        CubeWireframeMesh = new Mesh(PrimitiveType.Lines, indexBuffer, vertexBuffer);
 
-        ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 2));
+        ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 0));
 
         Texture = new Texture("texture.jpg");
 
-        GL.ClearColor(0.4f, 0.7f, 0.9f, 1.0f);
+        GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GL.Disable(EnableCap.CullFace);
         GL.Enable(EnableCap.DepthTest);
         GL.DepthFunc(DepthFunction.Lequal);
@@ -102,7 +102,7 @@ public class Program : GameWindow
     {
         base.OnUnload();
 
-        RectangleMesh.Dispose();
+        CubeWireframeMesh.Dispose();
         ImGuiController.Dispose();
         Texture.Dispose();
         Shader.Dispose();
@@ -127,6 +127,8 @@ public class Program : GameWindow
         ImGuiController.Update((float)args.Time);
         Camera.Update((float)args.Time);
 
+        ModelMatrix *= Matrix4.CreateRotationY((float)args.Time * 0.1f);
+
         if (ImGui.GetIO().WantCaptureMouse) return;
 
         var keyboard = KeyboardState.GetSnapshot();
@@ -141,18 +143,12 @@ public class Program : GameWindow
     {
         base.OnRenderFrame(args);
 
-        GL.Disable(EnableCap.CullFace);
-        GL.Enable(EnableCap.DepthTest);
-        GL.DepthFunc(DepthFunction.Lequal);
-
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         Shader.Use();
-        Texture.ActivateUnit();
-        Shader.LoadInteger("sampler", 0);
         Shader.LoadMatrix4("mvp", ModelMatrix * Camera.ProjectionViewMatrix);
-        RectangleMesh.Bind();
-        RectangleMesh.RenderIndexed();
+        CubeWireframeMesh.Bind();
+        CubeWireframeMesh.RenderIndexed();
 
         RenderGui();
 
