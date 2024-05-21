@@ -23,12 +23,12 @@ public class Program : GameWindow
 {
     private bool IsLoaded { get; set; }
 
-    private Shader Shader { get; set; }
-    private ImGuiController ImGuiController { get; set; }
-    private Mesh CubeWireframeMesh { get; set; }
+    private Shader Shader { get; set; } = null!;
+    private ImGuiController ImGuiController { get; set; } = null!;
+    private Mesh CubeWireframeMesh { get; set; } = null!;
     private Matrix4 ModelMatrix { get; set; }
-    private Camera Camera { get; set; }
-    private Texture Texture { get; set; }
+    private Camera Camera { get; set; } = null!;
+    private Texture Texture { get; set; } = null!;
 
     private DebugProc DebugProcCallback { get; } = OnDebugMessage;
 
