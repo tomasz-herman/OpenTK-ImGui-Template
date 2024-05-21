@@ -240,8 +240,6 @@ public class Program : GameWindow
 
         ImGui.End();
 
-        ImGui.ShowDemoWindow();
-
         ImGuiController.Render();
     }
 
