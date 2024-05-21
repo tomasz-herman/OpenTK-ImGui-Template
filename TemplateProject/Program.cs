@@ -141,10 +141,6 @@ public class Program : GameWindow
     {
         base.OnRenderFrame(args);
 
-        GL.Disable(EnableCap.CullFace);
-        GL.Enable(EnableCap.DepthTest);
-        GL.DepthFunc(DepthFunction.Lequal);
-
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         Shader.Use();
