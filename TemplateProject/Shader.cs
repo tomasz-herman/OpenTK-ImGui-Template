@@ -113,6 +113,11 @@ public class Shader : IDisposable
         return -1;
     }
 
+    public int GetUniformBlockIndex(string name)
+    {
+        return GL.GetUniformBlockIndex(Handle, name);
+    }
+
     public void LoadInteger(string name, int value)
     {
         GL.ProgramUniform1(Handle, GetUniformLocation(name), value);

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL4;
 
 namespace TemplateProject;
@@ -122,6 +123,16 @@ public class UniformBuffer : Buffer
     public UniformBuffer(IntPtr data, int size, BufferUsageHint usage = BufferUsageHint.DynamicCopy) : this(usage)
     {
         Load(data, size);
+    }
+
+    public void BindBase(int index)
+    {
+        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, index, Handle);
+    }
+
+    public void BindRange(int index, int offset, int size)
+    {
+        GL.BindBufferRange(BufferRangeTarget.UniformBuffer, index, Handle, new IntPtr(offset), new IntPtr(size));
     }
 }
 
