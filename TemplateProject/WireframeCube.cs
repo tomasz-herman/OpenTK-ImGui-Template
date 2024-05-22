@@ -32,7 +32,7 @@ public class WireframeCube : IDisposable
         Mesh = new Mesh(PrimitiveType.Lines, indexBuffer, vertexBuffer);
         ModelMatrix = Matrix4.Identity;
     }
-    
+
     private struct Vertex
     {
         public Vector3 Position;

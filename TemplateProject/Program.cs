@@ -209,7 +209,7 @@ public class Program : GameWindow
                 Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect, Height = 5 };
             ImGui.Indent(-10);
         }
-        
+
         if (ImGui.CollapsingHeader("Details"))
         {
             ImGui.Indent(10);

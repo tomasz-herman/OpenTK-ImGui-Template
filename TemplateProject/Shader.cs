@@ -127,12 +127,12 @@ public class Shader : IDisposable
     {
         GL.ProgramUniform1(Handle, GetUniformLocation(name), value);
     }
-    
+
     public void LoadFloat2(string name, Vector2 value)
     {
         GL.ProgramUniform2(Handle, GetUniformLocation(name), ref value);
     }
-    
+
     public void LoadFloat2(string name, ref Vector2 value)
     {
         GL.ProgramUniform2(Handle, GetUniformLocation(name), ref value);
@@ -162,7 +162,7 @@ public class Shader : IDisposable
     {
         GL.ProgramUniformMatrix2(Handle, GetUniformLocation(name), transpose, ref value);
     }
-    
+
     public void LoadMatrix2(string name, ref Matrix2 value, bool transpose = false)
     {
         GL.ProgramUniformMatrix2(Handle, GetUniformLocation(name), transpose, ref value);
