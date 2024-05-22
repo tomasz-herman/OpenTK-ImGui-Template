@@ -7,7 +7,7 @@ namespace TemplateProject;
 public class WireframeCube : IDisposable
 {
     public Matrix4 ModelMatrix { get; set; }
-    public Mesh Mesh { get; set; }
+    public Mesh Mesh { get; }
 
     public WireframeCube()
     {
