@@ -54,7 +54,7 @@ public class Program : GameWindow
         Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
-        Camera = new Camera(new NoControl(5 * Vector3.UnitZ, Vector3.Zero), new PerspectiveProjection());
+        Camera = new Camera(new OrbitingControl(5 * Vector3.UnitZ, Vector3.Zero), new PerspectiveProjection());
 
         WireframeCube = new WireframeCube();
 
@@ -183,11 +183,11 @@ public class Program : GameWindow
         ImGui.End();
     }
 
-    private static int _control;
+    private static int _control = 1;
     private static int _projection;
     private void RenderGui()
     {
-        ImGui.Begin("Camera");
+        ImGui.Begin("Camera", ImGuiWindowFlags.AlwaysAutoResize);
         if (ImGui.CollapsingHeader("Control"))
         {
             ImGui.Indent(10);
@@ -208,6 +208,20 @@ public class Program : GameWindow
                 Camera.Projection = new PerspectiveProjection { Aspect = Camera.Aspect };
             if (ImGui.RadioButton("Orthographic", ref _projection, 1))
                 Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect, Height = 5 };
+            ImGui.Indent(-10);
+        }
+        
+        if (ImGui.CollapsingHeader("Details"))
+        {
+            ImGui.Indent(10);
+            var position = new System.Numerics.Vector3(Camera.Position.X, Camera.Position.Y, Camera.Position.Z);
+            var front = new System.Numerics.Vector3(Camera.Front.X, Camera.Front.Y, Camera.Front.Z);
+            var right = new System.Numerics.Vector3(Camera.Right.X, Camera.Right.Y, Camera.Right.Z);
+            var up = new System.Numerics.Vector3(Camera.Up.X, Camera.Up.Y, Camera.Up.Z);
+            ImGui.InputFloat3("Camera position", ref position);
+            ImGui.InputFloat3("Camera front", ref front);
+            ImGui.InputFloat3("Camera right", ref right);
+            ImGui.InputFloat3("Camera up", ref up);
             ImGui.Indent(-10);
         }
 
