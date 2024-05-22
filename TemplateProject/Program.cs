@@ -10,24 +10,13 @@ using Vector4 = System.Numerics.Vector4;
 
 namespace TemplateProject;
 
-public struct Vertex
-{
-    public Vector3 Position;
-
-    public Vertex(Vector3 position)
-    {
-        Position = position;
-    }
-}
-
 public class Program : GameWindow
 {
     private bool IsLoaded { get; set; }
 
     private Shader Shader { get; set; } = null!;
     private ImGuiController ImGuiController { get; set; } = null!;
-    private Mesh CubeWireframeMesh { get; set; } = null!;
-    private Matrix4 ModelMatrix { get; set; }
+    private WireframeCube WireframeCube { get; set; } = null!;
     private Camera Camera { get; set; } = null!;
     private Texture Texture { get; set; } = null!;
 
@@ -67,27 +56,7 @@ public class Program : GameWindow
 
         Camera = new Camera(new NoControl(5 * Vector3.UnitZ, Vector3.Zero), new PerspectiveProjection());
 
-        Vertex[] vertices = {
-            new(new Vector3(0.5f, 0.5f, 0.5f)),
-            new(new Vector3(-0.5f, 0.5f, 0.5f)),
-            new(new Vector3(0.5f, -0.5f, 0.5f)),
-            new(new Vector3(0.5f, 0.5f, -0.5f)),
-            new(new Vector3(-0.5f, -0.5f, 0.5f)),
-            new(new Vector3(-0.5f, 0.5f, -0.5f)),
-            new(new Vector3(0.5f, -0.5f, -0.5f)),
-            new(new Vector3(-0.5f, -0.5f, -0.5f))
-        };
-        byte[] indices = {
-            0, 1, 0, 2, 0, 3, 1, 4, 1, 5, 2, 4, 2, 6, 3, 5, 3, 6, 4, 7, 5, 7, 6, 7
-        };
-        var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(byte),
-            DrawElementsType.UnsignedByte, indices.Length);
-        var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
-            vertices.Length, BufferUsageHint.StaticDraw,
-            new VertexBuffer.Attribute(0, 3) /*positions*/);
-        CubeWireframeMesh = new Mesh(PrimitiveType.Lines, indexBuffer, vertexBuffer);
-
-        ModelMatrix = Matrix4.Identity;
+        WireframeCube = new WireframeCube();
 
         Texture = new Texture("texture.jpg");
 
@@ -103,7 +72,7 @@ public class Program : GameWindow
     {
         base.OnUnload();
 
-        CubeWireframeMesh.Dispose();
+        WireframeCube.Dispose();
         ImGuiController.Dispose();
         Texture.Dispose();
         Shader.Dispose();
@@ -128,7 +97,7 @@ public class Program : GameWindow
         ImGuiController.Update((float)args.Time);
         Camera.Update((float)args.Time);
 
-        ModelMatrix *= Matrix4.CreateRotationY((float)args.Time * 0.1f);
+        WireframeCube.ModelMatrix *= Matrix4.CreateRotationY((float)args.Time * 0.1f);
 
         if (ImGui.GetIO().WantCaptureMouse) return;
 
@@ -147,14 +116,15 @@ public class Program : GameWindow
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         Shader.Use();
-        Shader.LoadMatrix4("mvp", ModelMatrix * Camera.ProjectionViewMatrix);
-        CubeWireframeMesh.Bind();
-        CubeWireframeMesh.RenderIndexed();
-        
-        DebugMatrix(ModelMatrix, "Model Matrix");
+        Matrix4 mvp = WireframeCube.ModelMatrix * Camera.ProjectionViewMatrix;
+        Shader.LoadMatrix4("mvp", WireframeCube.ModelMatrix * Camera.ProjectionViewMatrix);
+        WireframeCube.Mesh.Bind();
+        WireframeCube.Mesh.RenderIndexed();
+
+        DebugMatrix(WireframeCube.ModelMatrix, "Model Matrix");
         DebugMatrix(Camera.ViewMatrix, "View Matrix");
         DebugMatrix(Camera.ProjectionMatrix, "Projection Matrix");
-        DebugMatrix(ModelMatrix * Camera.ProjectionViewMatrix, "MVP Matrix");
+        DebugMatrix(mvp, "MVP Matrix");
 
         RenderGui();
 
