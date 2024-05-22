@@ -90,14 +90,17 @@ public class Program : GameWindow
         Camera.Aspect = (float)ClientSize.X / ClientSize.Y;
     }
 
+    private float _time;
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         base.OnUpdateFrame(args);
 
+        _time += (float)args.Time;
+
         ImGuiController.Update((float)args.Time);
         Camera.Update((float)args.Time);
 
-        WireframeCube.ModelMatrix *= Matrix4.CreateRotationY((float)args.Time * 0.1f);
+        WireframeCube.ModelMatrix = Matrix4.CreateRotationY(_time * 0.25f);
 
         if (ImGui.GetIO().WantCaptureMouse) return;
 
