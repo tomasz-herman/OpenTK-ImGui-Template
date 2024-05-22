@@ -6,7 +6,6 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using ShaderType = OpenTK.Graphics.OpenGL4.ShaderType;
-using Vector4 = System.Numerics.Vector4;
 
 namespace TemplateProject;
 
@@ -172,10 +171,10 @@ public class Program : GameWindow
     private void DebugMatrix(Matrix4 matrix, string name)
     {
         ImGui.Begin(name, ImGuiWindowFlags.AlwaysAutoResize);
-        var c0 = new Vector4(matrix.Column0.X, matrix.Column0.Y, matrix.Column0.Z, matrix.Column0.W);
-        var c1 = new Vector4(matrix.Column1.X, matrix.Column1.Y, matrix.Column1.Z, matrix.Column1.W);
-        var c2 = new Vector4(matrix.Column2.X, matrix.Column2.Y, matrix.Column2.Z, matrix.Column2.W);
-        var c3 = new Vector4(matrix.Column3.X, matrix.Column3.Y, matrix.Column3.Z, matrix.Column3.W);
+        var c0 = new System.Numerics.Vector4(matrix.Column0.X, matrix.Column0.Y, matrix.Column0.Z, matrix.Column0.W);
+        var c1 = new System.Numerics.Vector4(matrix.Column1.X, matrix.Column1.Y, matrix.Column1.Z, matrix.Column1.W);
+        var c2 = new System.Numerics.Vector4(matrix.Column2.X, matrix.Column2.Y, matrix.Column2.Z, matrix.Column2.W);
+        var c3 = new System.Numerics.Vector4(matrix.Column3.X, matrix.Column3.Y, matrix.Column3.Z, matrix.Column3.W);
         ImGui.PushID($"{name}_c0"); ImGui.InputFloat4("", ref c0); ImGui.PopID();
         ImGui.PushID($"{name}_c1"); ImGui.InputFloat4("", ref c1); ImGui.PopID();
         ImGui.PushID($"{name}_c2"); ImGui.InputFloat4("", ref c2); ImGui.PopID();
