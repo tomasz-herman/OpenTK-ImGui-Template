@@ -9,13 +9,12 @@ public class Mesh : IDisposable, IBindable
     private IndexBuffer? IndexBuffer { get; }
     private PrimitiveType Type { get; }
 
-    public Mesh(PrimitiveType type, IndexBuffer? indexBuffer, VertexBuffer vertexBuffer, params VertexBuffer[] vertexBuffers)
+    public Mesh(PrimitiveType type, IndexBuffer? indexBuffer, params VertexBuffer[] vertexBuffers)
     {
         Type = type;
         GL.CreateVertexArrays(1, out int handle);
         Handle = handle;
         IndexBuffer = indexBuffer;
-        VertexBuffers.Add(vertexBuffer);
         VertexBuffers.AddRange(vertexBuffers);
         if (IndexBuffer != null)
         {
