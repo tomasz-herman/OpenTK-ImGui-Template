@@ -30,6 +30,7 @@ public class Program : GameWindow
     private Mesh RectangleMesh { get; set; } = null!;
     private Matrix4 ModelMatrix { get; set; }
     private Camera Camera { get; set; } = null!;
+    private Sky Sky { get; set; } = null!;
     private Texture Texture { get; set; } = null!;
 
     private DebugProc DebugProcCallback { get; } = OnDebugMessage;
@@ -88,6 +89,8 @@ public class Program : GameWindow
 
         ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 2));
 
+        Sky = new Sky();
+
         Texture = new Texture("texture.jpg");
 
         GL.ClearColor(0.4f, 0.7f, 0.9f, 1.0f);
@@ -126,6 +129,7 @@ public class Program : GameWindow
 
         ImGuiController.Update((float)args.Time);
         Camera.Update((float)args.Time);
+        Sky.Update();
 
         if (ImGui.GetIO().WantCaptureMouse) return;
 
@@ -143,6 +147,8 @@ public class Program : GameWindow
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
+        Sky.Render(Camera);
+        
         Shader.Use();
         Texture.ActivateUnit();
         Shader.LoadInteger("sampler", 0);
@@ -219,6 +225,8 @@ public class Program : GameWindow
         }
 
         ImGui.End();
+        
+        Sky.ShowGui();
 
         ImGui.ShowDemoWindow();
 
