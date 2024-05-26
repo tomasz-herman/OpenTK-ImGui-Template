@@ -30,6 +30,7 @@ public class Program : GameWindow
     private Mesh RectangleMesh { get; set; } = null!;
     private Matrix4 ModelMatrix { get; set; }
     private Camera Camera { get; set; } = null!;
+    private Plane Plane { get; set; } = null!;
     private Sky Sky { get; set; } = null!;
     private Texture Texture { get; set; } = null!;
 
@@ -67,7 +68,7 @@ public class Program : GameWindow
         Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
-        Camera = new Camera(new NoControl(Vector3.Zero, Vector3.UnitZ), new PerspectiveProjection());
+        Camera = new Camera(new OrbitingControl((Vector3.UnitY  + Vector3.UnitZ ) * 2, Vector3.UnitY * 2), new PerspectiveProjection());
 
         Vertex[] vertices = {
             new(new Vector3(0.5f, 0.5f, 0.0f), new Vector2(0.0f, 0.0f)),
@@ -87,9 +88,10 @@ public class Program : GameWindow
             new VertexBuffer.Attribute(1, 2) /*texture coords*/);
         RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
 
-        ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 0, 2));
+        ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 2, 0));
 
         Sky = new Sky();
+        Plane = new Plane();
 
         Texture = new Texture("texture.jpg");
 
@@ -148,6 +150,7 @@ public class Program : GameWindow
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         Sky.Render(Camera);
+        Plane.Render(Camera);
         
         Shader.Use();
         Texture.ActivateUnit();
@@ -196,7 +199,7 @@ public class Program : GameWindow
         ImGuiController.OnMouseMove(e);
     }
 
-    private static int _control;
+    private static int _control = 1;
     private static int _projection;
     private void RenderGui()
     {

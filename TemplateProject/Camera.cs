@@ -104,7 +104,7 @@ public class OrbitingControl : Camera.IControl
         ViewMatrix = control.ViewMatrix;
     }
 
-    public OrbitingControl(Vector3 position, Vector3 target, Vector3? up)
+    public OrbitingControl(Vector3 position, Vector3 target, Vector3? up = null)
     {
         up ??= WorldUp;
         Position = position;

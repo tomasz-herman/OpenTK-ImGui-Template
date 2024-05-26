@@ -110,7 +110,7 @@ public class Shader : IDisposable
         bool found = Uniforms.TryGetValue(name, out int location);
         if (found) return location;
         Console.WriteLine($"Uniform with name {name} not found.");
-        return -1;
+        return GL.GetUniformLocation(Handle, name);
     }
 
     public int GetUniformBlockIndex(string name)
