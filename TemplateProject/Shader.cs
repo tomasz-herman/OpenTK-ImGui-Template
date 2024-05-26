@@ -8,7 +8,7 @@ namespace TemplateProject;
 
 public class Shader : IDisposable
 {
-    public const string ResourcesPath = "TemplateProject.Resources";
+    public const string ResourcesPath = "TemplateProject.Resources.shaders";
     public int Handle { get; private set; }
     private Dictionary<string, int> Uniforms { get; } = new();
 

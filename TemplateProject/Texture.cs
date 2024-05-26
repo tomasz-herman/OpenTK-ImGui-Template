@@ -8,7 +8,7 @@ namespace TemplateProject;
 
 public class Texture : IDisposable, IBindable
 {
-    public const string ResourcesPath = "TemplateProject.Resources";
+    public const string ResourcesPath = "TemplateProject.Resources.textures";
     public int Handle { get; }
 
     public Texture()
