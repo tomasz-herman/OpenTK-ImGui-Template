@@ -42,6 +42,7 @@ public class Camera
     public interface IProjection
     {
         void Update(Camera camera, float dt);
+        void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse);
         float Aspect { get; set; }
         Matrix4 ProjectionMatrix { get; }
     }
@@ -55,6 +56,7 @@ public class Camera
     public void HandleInput(float dt, KeyboardState keyboard, MouseState mouse)
     {
         Control.HandleInput(this, dt, keyboard, mouse);
+        Projection.HandleInput(this, dt, keyboard, mouse);
     }
 }
 
@@ -256,11 +258,19 @@ public class PerspectiveProjection : Camera.IProjection
         ProjectionMatrix = Matrix4.CreatePerspectiveFieldOfView(FovY, Aspect, Near, Far);
     }
 
+    public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse)
+    {
+        float scroll = mouse.ScrollDelta.Y;
+        FovY *= MathF.Pow(1 + Sensitivity, scroll);
+        FovY = float.Clamp(FovY, float.MinValue, float.Pi);
+    }
+
     public float FovY { get; set; } = MathF.PI / 4;
     public float Aspect { get; set; }
     public float Near { get; set; } = 0.1f;
     public float Far { get; set; } = 100.0f;
     public Matrix4 ProjectionMatrix { get; private set; }
+    public float Sensitivity { get; set; } = 0.002f;
 }
 
 public class OrthographicProjection : Camera.IProjection
@@ -270,9 +280,20 @@ public class OrthographicProjection : Camera.IProjection
         ProjectionMatrix = Matrix4.CreateOrthographic(Height * Aspect, Height, Near, Far);
     }
 
+    public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse)
+    {
+        if (mouse.ScrollDelta != Vector2.Zero)
+        {
+            float scroll = mouse.ScrollDelta.Y;
+            Height *= MathF.Pow(1 + Sensitivity, scroll);
+            Height = float.Clamp(Height, 0, float.PositiveInfinity);
+        }
+    }
+
     public float Near { get; set; } = 0f;
     public float Far { get; set; } = 10.0f;
     public float Height { get; set; } = 1.0f;
     public float Aspect { get; set; }
     public Matrix4 ProjectionMatrix { get; private set; }
+    public float Sensitivity { get; set; } = 0.002f;
 }
