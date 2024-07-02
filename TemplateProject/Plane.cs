@@ -29,7 +29,7 @@ public class Plane : IDisposable
             indices.Length);
         VertexBuffer vbo = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vector4>(), vertices.Length,
             BufferUsageHint.StaticDraw, new VertexBuffer.Attribute(0, 4));
-        Mesh = new Mesh(PrimitiveType.Triangles, ibo, vbo);
+        Mesh = new Mesh("Plane", PrimitiveType.Triangles, ibo, vbo);
         Shader = new Shader(("plane.frag", ShaderType.FragmentShader),
             ("plane.vert", ShaderType.VertexShader));
         Texture = new Texture("grid.png");

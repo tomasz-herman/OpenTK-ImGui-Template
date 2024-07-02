@@ -5,12 +5,14 @@ namespace TemplateProject;
 public class Mesh : IDisposable, IBindable
 {
     public int Handle { get; }
+    public string Name { get; }
     private List<VertexBuffer> VertexBuffers { get; } = new();
     private IndexBuffer? IndexBuffer { get; }
     private PrimitiveType Type { get; }
 
-    public Mesh(PrimitiveType type, IndexBuffer? indexBuffer, params VertexBuffer[] vertexBuffers)
+    public Mesh(string name, PrimitiveType type, IndexBuffer? indexBuffer, params VertexBuffer[] vertexBuffers)
     {
+        Name = name;
         Type = type;
         GL.CreateVertexArrays(1, out int handle);
         Handle = handle;

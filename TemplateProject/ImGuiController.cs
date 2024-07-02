@@ -183,7 +183,7 @@ public unsafe class ImGuiController : IDisposable
             new VertexBuffer.Attribute(0, 2),
             new VertexBuffer.Attribute(1, 2),
             new VertexBuffer.Attribute(2, 4, VertexAttribType.UnsignedByte, true));
-        Mesh = new Mesh(PrimitiveType.Triangles, IndexBuffer, VertexBuffer);
+        Mesh = new Mesh("ImGui", PrimitiveType.Triangles, IndexBuffer, VertexBuffer);
 
         CreateContext();
     }

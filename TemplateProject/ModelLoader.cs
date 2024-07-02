@@ -20,7 +20,7 @@ public static class ModelLoader
         public Vector2 TextureCoordinate;
     }
 
-    public static List<Mesh> Load(string path, PostProcessSteps ppSteps = PostProcessSteps.Triangulate |
+    public static Model Load(string path, PostProcessSteps ppSteps = PostProcessSteps.Triangulate |
                                                                           PostProcessSteps.GenerateNormals |
                                                                           PostProcessSteps.JoinIdenticalVertices |
                                                                           PostProcessSteps.FixInFacingNormals)
@@ -34,7 +34,18 @@ public static class ModelLoader
         // List<Texture> textures = new List<Texture>();
         // List<Object> materials = new List<Object>();
 
-        return meshes;
+        Model.Node root = ProcessNode(scene.RootNode, meshes);
+
+        return new Model(path, meshes, root);
+    }
+
+    private static Model.Node ProcessNode(Node node, List<Mesh> meshes)
+    { 
+        return new Model.Node(
+            node.Name, 
+            node.Transform.AsOpenTkMatrix4(), 
+            node.MeshIndices.Select(i => meshes[i]).ToList(), 
+            node.Children.Select(child => ProcessNode(child, meshes)).ToList());
     }
 
     private static List<Mesh> ProcessMeshes(Scene scene)
@@ -58,7 +69,7 @@ public static class ModelLoader
 
             var ibo = new IndexBuffer(indices, indices.Length * sizeof(uint), DrawElementsType.UnsignedInt, indices.Length);
             var vbo = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(), vertices.Length);
-            meshes.Add(new Mesh(PrimitiveType.Triangles, ibo, vbo));
+            meshes.Add(new Mesh(mesh.Name, PrimitiveType.Triangles, ibo, vbo));
         }
 
         return meshes;
@@ -72,5 +83,14 @@ public static class ModelLoader
     private static Vector2 AsOpenTkVector2(this Vector3D vector)
     {
         return new Vector2(vector.X, vector.Y);
+    }
+    
+    private static Matrix4 AsOpenTkMatrix4(this Matrix4x4 matrix)
+    {
+        return new Matrix4(
+            new Vector4(matrix.A1, matrix.A2, matrix.A3, matrix.A4),
+            new Vector4(matrix.B1, matrix.B2, matrix.B3, matrix.B4),
+            new Vector4(matrix.C1, matrix.C2, matrix.C3, matrix.C4),
+            new Vector4(matrix.D1, matrix.D2, matrix.D3, matrix.D4));
     }
 }

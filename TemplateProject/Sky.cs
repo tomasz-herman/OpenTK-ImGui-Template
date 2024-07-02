@@ -17,7 +17,7 @@ public class Sky : IDisposable
     public Sky()
     {
         var ibo = new IndexBuffer(new [] { 0, 1, 2, 3 }, 16, DrawElementsType.UnsignedInt, 4);
-        Quad = new Mesh(PrimitiveType.TriangleStrip, ibo);
+        Quad = new Mesh("Quad", PrimitiveType.TriangleStrip, ibo);
         Shader = new Shader(("sky.frag", ShaderType.FragmentShader),
             ("sky.vert", ShaderType.VertexShader));
     }

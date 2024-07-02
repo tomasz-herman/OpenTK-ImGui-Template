@@ -86,7 +86,7 @@ public class Program : GameWindow
             vertices.Length, BufferUsageHint.StaticDraw,
             new VertexBuffer.Attribute(0, 3) /*positions*/,
             new VertexBuffer.Attribute(1, 2) /*texture coords*/);
-        RectangleMesh = new Mesh(PrimitiveType.Triangles, indexBuffer, vertexBuffer);
+        RectangleMesh = new Mesh("Rectangle", PrimitiveType.Triangles, indexBuffer, vertexBuffer);
 
         ModelMatrix = Matrix4.CreateTranslation(new Vector3(0, 2, 0));
 
