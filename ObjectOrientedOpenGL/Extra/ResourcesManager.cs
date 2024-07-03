@@ -1,4 +1,6 @@
-namespace TemplateProject;
+using ObjectOrientedOpenGL.Core;
+
+namespace ObjectOrientedOpenGL.Extra;
 
 public class ResourcesManager
 {

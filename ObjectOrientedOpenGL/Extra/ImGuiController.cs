@@ -1,11 +1,11 @@
 ﻿using ImGuiNET;
+using ObjectOrientedOpenGL.Core;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Extra;
 
 public unsafe class ImGuiController : IDisposable
 {
@@ -175,8 +175,8 @@ public unsafe class ImGuiController : IDisposable
 
         FontTexture = new Texture();
         Shader = new Shader(
-            ("imgui.vert", ShaderType.VertexShader),
-            ("imgui.frag", ShaderType.FragmentShader));
+            ("ObjectOrientedOpenGL.Resources.Shaders.imgui.vert", ShaderType.VertexShader),
+            ("ObjectOrientedOpenGL.Resources.Shaders.imgui.frag", ShaderType.FragmentShader));
 
         IndexBuffer = new IndexBuffer(2000 * sizeof(ushort), DrawElementsType.UnsignedShort, 2000, BufferUsageHint.DynamicDraw);
         VertexBuffer = new VertexBuffer(10000 * sizeof(ImDrawVert), 10000, BufferUsageHint.DynamicDraw,

@@ -1,8 +1,9 @@
 using System.Runtime.InteropServices;
+using ObjectOrientedOpenGL.Core;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Extra;
 
 public class Plane : IDisposable
 {
@@ -30,9 +31,9 @@ public class Plane : IDisposable
         VertexBuffer vbo = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vector4>(), vertices.Length,
             BufferUsageHint.StaticDraw, new VertexBuffer.Attribute(0, 4));
         Mesh = new Mesh("Plane", PrimitiveType.Triangles, ibo, vbo);
-        Shader = new Shader(("plane.frag", ShaderType.FragmentShader),
-            ("plane.vert", ShaderType.VertexShader));
-        Texture = new Texture("grid.png");
+        Shader = new Shader(("ObjectOrientedOpenGL.Resources.Shaders.plane.frag", ShaderType.FragmentShader),
+            ("ObjectOrientedOpenGL.Resources.Shaders.plane.vert", ShaderType.VertexShader));
+        Texture = new Texture("ObjectOrientedOpenGL.Resources.Textures.grid.png");
     }
 
     public void Render(Camera camera)

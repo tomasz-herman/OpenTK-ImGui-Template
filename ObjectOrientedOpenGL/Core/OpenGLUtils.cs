@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using OpenTK.Graphics.OpenGL;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public static class OpenGLUtils
 {

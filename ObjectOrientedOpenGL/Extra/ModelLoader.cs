@@ -1,23 +1,28 @@
+using ObjectOrientedOpenGL.Core;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Assimp;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using PrimitiveType = OpenTK.Graphics.OpenGL4.PrimitiveType;
+using Mesh = ObjectOrientedOpenGL.Core.Mesh;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Extra;
 
 public static class ModelLoader
 {
-    public const string ResourcesPath = "TemplateProject.Resources.models";
-
-    private struct Vertex
+    public struct Vertex(
+        Vector3 position,
+        Vector3 normal,
+        Vector3 tangent,
+        Vector3 biTangent,
+        Vector2 textureCoordinate)
     {
-        public Vector3 Position;
-        public Vector3 Normal;
-        public Vector3 Tangent;
-        public Vector3 BiTangent;
-        public Vector2 TextureCoordinate;
+        public Vector3 Position = position;
+        public Vector3 Normal = normal;
+        public Vector3 Tangent = tangent;
+        public Vector3 BiTangent = biTangent;
+        public Vector2 TextureCoordinate = textureCoordinate;
     }
 
     public static Model Load(string path, PostProcessSteps ppSteps = PostProcessSteps.Triangulate |
@@ -25,16 +30,15 @@ public static class ModelLoader
                                                                           PostProcessSteps.JoinIdenticalVertices |
                                                                           PostProcessSteps.FixInFacingNormals)
     {
-        AssimpContext context = new AssimpContext();
-        var assembly = Assembly.GetAssembly(typeof(ModelLoader))!;
-        using Stream? stream = assembly.GetManifestResourceStream($"{ResourcesPath}.{path}");
-        Scene scene = context.ImportFileFromStream(stream, ppSteps, Path.GetExtension(path));
+        var context = new AssimpContext();
+        using var stream = ResourcesUtils.GetResourceStream(path);
+        var scene = context.ImportFileFromStream(stream, ppSteps, Path.GetExtension(path));
 
-        List<Mesh> meshes = ProcessMeshes(scene);
+        var meshes = ProcessMeshes(scene);
         // List<Texture> textures = new List<Texture>();
         // List<Object> materials = new List<Object>();
 
-        Model.Node root = ProcessNode(scene.RootNode, meshes);
+        var root = ProcessNode(scene.RootNode, meshes);
 
         return new Model(path, meshes, root);
     }
@@ -58,13 +62,13 @@ public static class ModelLoader
             for (int i = 0; i < mesh.VertexCount; i++)
             {
                 vertices[i] = new Vertex
-                {
-                    Position = mesh.Vertices[i].AsOpenTkVector(),
-                    Normal = mesh.Normals[i].AsOpenTkVector(),
-                    Tangent = mesh.Tangents[i].AsOpenTkVector(),
-                    BiTangent = mesh.BiTangents[i].AsOpenTkVector(),
-                    TextureCoordinate = mesh.TextureCoordinateChannels[0][i].AsOpenTkVector2()
-                };
+                (
+                    mesh.Vertices[i].AsOpenTkVector(),
+                    mesh.Normals[i].AsOpenTkVector(),
+                    mesh.Tangents[i].AsOpenTkVector(),
+                    mesh.BiTangents[i].AsOpenTkVector(),
+                    mesh.TextureCoordinateChannels[0][i].AsOpenTkVector2()
+                );
             }
 
             var ibo = new IndexBuffer(indices, indices.Length * sizeof(uint), DrawElementsType.UnsignedInt, indices.Length);

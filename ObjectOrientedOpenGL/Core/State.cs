@@ -1,6 +1,6 @@
 using OpenTK.Graphics.OpenGL4;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public class State : IDisposable
 {

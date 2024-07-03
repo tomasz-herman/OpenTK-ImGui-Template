@@ -1,5 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using ImGuiNET;
+using ObjectOrientedOpenGL.Core;
+using ObjectOrientedOpenGL.Extra;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -9,19 +11,14 @@ using ShaderType = OpenTK.Graphics.OpenGL4.ShaderType;
 
 namespace TemplateProject;
 
-public struct Vertex
+public struct Vertex(Vector3 position, Vector2 texCoord)
 {
-    public Vector3 Position;
-    public Vector2 TexCoord;
-
-    public Vertex(Vector3 position, Vector2 texCoord)
-    {
-        Position = position;
-        TexCoord = texCoord;
-    }
+    public Vector3 Position = position;
+    public Vector2 TexCoord = texCoord;
 }
 
-public class Program : GameWindow
+public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+    : GameWindow(gameWindowSettings, nativeWindowSettings)
 {
     private bool IsLoaded { get; set; }
 
@@ -52,8 +49,6 @@ public class Program : GameWindow
         program.Run();
     }
 
-    public Program(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) { }
-
     protected override void OnLoad()
     {
         base.OnLoad();
@@ -65,7 +60,9 @@ public class Program : GameWindow
         GL.Enable(EnableCap.DebugOutputSynchronous);
 #endif
 
-        Shader = new Shader(("shader.vert", ShaderType.VertexShader), ("shader.frag", ShaderType.FragmentShader));
+        Shader = new Shader(
+            ("TemplateProject.Resources.Shaders.shader.vert", ShaderType.VertexShader), 
+            ("TemplateProject.Resources.Shaders.shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
         Camera = new Camera(new OrbitingControl((Vector3.UnitY  + Vector3.UnitZ ) * 2, Vector3.UnitY * 2), new PerspectiveProjection());
@@ -93,7 +90,7 @@ public class Program : GameWindow
         Sky = new Sky();
         Plane = new Plane();
 
-        Texture = new Texture("texture.jpg");
+        Texture = new Texture("TemplateProject.Resources.Textures.texture.jpg");
 
         GL.ClearColor(0.4f, 0.7f, 0.9f, 1.0f);
         GL.Disable(EnableCap.CullFace);

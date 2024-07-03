@@ -1,7 +1,7 @@
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public class Camera
 {

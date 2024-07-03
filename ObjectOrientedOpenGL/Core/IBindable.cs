@@ -1,4 +1,4 @@
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public interface IBindable
 {

@@ -1,8 +1,7 @@
 using System.Runtime.InteropServices;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL4;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public abstract class Buffer : IBindable, IDisposable
 {

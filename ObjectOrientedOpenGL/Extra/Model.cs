@@ -1,6 +1,7 @@
+using ObjectOrientedOpenGL.Core;
 using OpenTK.Mathematics;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Extra;
 
 public class Model : IDisposable
 {

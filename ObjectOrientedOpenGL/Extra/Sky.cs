@@ -1,8 +1,9 @@
 using ImGuiNET;
+using ObjectOrientedOpenGL.Core;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Extra;
 
 public class Sky : IDisposable
 {
@@ -18,8 +19,8 @@ public class Sky : IDisposable
     {
         var ibo = new IndexBuffer(new [] { 0, 1, 2, 3 }, 16, DrawElementsType.UnsignedInt, 4);
         Quad = new Mesh("Quad", PrimitiveType.TriangleStrip, ibo);
-        Shader = new Shader(("sky.frag", ShaderType.FragmentShader),
-            ("sky.vert", ShaderType.VertexShader));
+        Shader = new Shader(("ObjectOrientedOpenGL.Resources.Shaders.sky.frag", ShaderType.FragmentShader),
+            ("ObjectOrientedOpenGL.Resources.Shaders.sky.vert", ShaderType.VertexShader));
     }
 
     public void Update()

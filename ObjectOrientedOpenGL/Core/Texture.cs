@@ -4,11 +4,10 @@ using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL4;
 using StbImageSharp;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public class Texture : IDisposable, IBindable
 {
-    public const string ResourcesPath = "TemplateProject.Resources.textures";
     public int Handle { get; }
 
     public Texture()
@@ -29,8 +28,7 @@ public class Texture : IDisposable, IBindable
 
     public void LoadDataFromResources(string path)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream($"{ResourcesPath}.{path}");
+        using var stream = ResourcesUtils.GetResourceStream(path);
 
         ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 

@@ -4,11 +4,10 @@ using System.Text.RegularExpressions;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace TemplateProject;
+namespace ObjectOrientedOpenGL.Core;
 
 public class Shader : IDisposable
 {
-    public const string ResourcesPath = "TemplateProject.Resources.shaders";
     public int Handle { get; private set; }
     private Dictionary<string, int> Uniforms { get; } = new();
 
@@ -40,8 +39,7 @@ public class Shader : IDisposable
 
     private string ReadSource(string path)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream($"{ResourcesPath}.{path}");
+        using var stream = ResourcesUtils.GetResourceStream(path);
         if (stream == null) throw new Exception("Shader not found!");
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
