@@ -65,18 +65,20 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             ("TemplateProject.Resources.Shaders.shader.frag", ShaderType.FragmentShader));
         ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
-        Camera = new Camera(new OrbitingControl((Vector3.UnitY  + Vector3.UnitZ ) * 2, Vector3.UnitY * 2), new PerspectiveProjection());
+        Camera = new Camera(new EditorControl((Vector3.UnitY  + Vector3.UnitZ ) * 2, Vector3.UnitY * 2), new PerspectiveProjection());
 
-        Vertex[] vertices = {
+        Vertex[] vertices =
+        [
             new(new Vector3(0.5f, 0.5f, 0.0f), new Vector2(0.0f, 0.0f)),
             new(new Vector3(0.5f, -0.5f, 0.0f), new Vector2(0.0f, 1.0f)),
             new(new Vector3(-0.5f, -0.5f, 0.0f), new Vector2(1.0f, 1.0f)),
             new(new Vector3(-0.5f, 0.5f, 0.0f), new Vector2(1.0f, 0.0f))
-        };
-        int[] indices = {
+        ];
+        int[] indices =
+        [
             0, 1, 3,
             1, 2, 3
-        };
+        ];
         var indexBuffer = new IndexBuffer(indices, indices.Length * sizeof(int),
             DrawElementsType.UnsignedInt, indices.Length);
         var vertexBuffer = new VertexBuffer(vertices, vertices.Length * Marshal.SizeOf<Vertex>(),
@@ -196,7 +198,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         ImGuiController.OnMouseMove(e);
     }
 
-    private static int _control = 1;
+    private static int _control = 3;
     private static int _projection;
     private void RenderGui()
     {
@@ -207,9 +209,11 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             if (ImGui.RadioButton("No Control", ref _control, 0))
                 Camera.Control = new NoControl(Camera.Control);
             if (ImGui.RadioButton("Orbital Control", ref _control, 1))
-                Camera.Control = new OrbitingControl(Camera.Control);
+                Camera.Control = new OrbitalControl(Camera.Control);
             if (ImGui.RadioButton("FlyBy Control", ref _control, 2))
                 Camera.Control = new FlyByControl(Camera.Control);
+            if (ImGui.RadioButton("Editor Control", ref _control, 3))
+                Camera.Control = new EditorControl(Camera.Control);
 
             ImGui.Indent(-10);
         }
