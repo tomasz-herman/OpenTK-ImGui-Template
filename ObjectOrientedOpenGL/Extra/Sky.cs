@@ -84,7 +84,7 @@ public class Sky : IDisposable
         return (1.0f + a * float.Exp(b / (float.Cos(theta) + 0.01f))) * (1.0f + c * float.Exp(d * gamma) + e * float.Cos(gamma) * float.Cos(gamma));
     }
 
-    public void ShowGui()
+    public void Gui()
     {
         ImGui.Begin("Sky");
         ImGui.DragFloat("Turbidity", ref _turbidity, 0.01f);

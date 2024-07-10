@@ -326,7 +326,6 @@ public class EditorControl : Camera.IControl
     public void Zoom(Vector2 delta)
     {
         Distance *= MathF.Pow(1 + ZoomSpeed, delta.Y);
-        Console.WriteLine(Distance);
         if (Distance < 1)
         {
             FocalPoint += Forward * (1 - Distance);

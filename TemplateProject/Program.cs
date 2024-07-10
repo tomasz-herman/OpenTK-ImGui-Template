@@ -18,12 +18,9 @@ public struct Vertex(Vector3 position, Vector2 texCoord)
 }
 
 public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
-    : GameWindow(gameWindowSettings, nativeWindowSettings)
+    : ImGuiGameWindow(gameWindowSettings, nativeWindowSettings)
 {
-    private bool IsLoaded { get; set; }
-
     private Shader Shader { get; set; } = null!;
-    private ImGuiController ImGuiController { get; set; } = null!;
     private Mesh RectangleMesh { get; set; } = null!;
     private Matrix4 ModelMatrix { get; set; }
     private Camera Camera { get; set; } = null!;
@@ -63,7 +60,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Shader = new Shader(
             ("TemplateProject.Resources.Shaders.shader.vert", ShaderType.VertexShader), 
             ("TemplateProject.Resources.Shaders.shader.frag", ShaderType.FragmentShader));
-        ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
 
         Camera = new Camera(new EditorControl((Vector3.UnitY  + Vector3.UnitZ ) * 2, Vector3.UnitY * 2), new PerspectiveProjection());
 
@@ -98,8 +94,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         GL.Disable(EnableCap.CullFace);
         GL.Enable(EnableCap.DepthTest);
         GL.DepthFunc(DepthFunction.Lequal);
-
-        IsLoaded = true;
     }
 
     protected override void OnUnload()
@@ -107,20 +101,14 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         base.OnUnload();
 
         RectangleMesh.Dispose();
-        ImGuiController.Dispose();
         Texture.Dispose();
         Shader.Dispose();
-
-        IsLoaded = false;
     }
 
     protected override void OnResize(ResizeEventArgs e)
     {
-        if (!IsLoaded) return;
-
         base.OnResize(e);
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-        ImGuiController.OnWindowResized(ClientSize.X, ClientSize.Y);
         Camera.Aspect = (float)ClientSize.X / ClientSize.Y;
     }
 
@@ -128,7 +116,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         base.OnUpdateFrame(args);
 
-        ImGuiController.Update((float)args.Time);
         Camera.Update((float)args.Time);
         Sky.Update();
 
@@ -163,49 +150,14 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Context.SwapBuffers();
     }
 
-    protected override void OnKeyDown(KeyboardKeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-
-        ImGuiController.OnKey(e, true);
-    }
-
-    protected override void OnKeyUp(KeyboardKeyEventArgs e)
-    {
-        base.OnKeyUp(e);
-
-        ImGuiController.OnKey(e, false);
-    }
-
-    protected override void OnMouseDown(MouseButtonEventArgs e)
-    {
-        base.OnMouseDown(e);
-
-        ImGuiController.OnMouseButton(e);
-    }
-
-    protected override void OnMouseUp(MouseButtonEventArgs e)
-    {
-        base.OnMouseUp(e);
-
-        ImGuiController.OnMouseButton(e);
-    }
-
-    protected override void OnMouseMove(MouseMoveEventArgs e)
-    {
-        base.OnMouseMove(e);
-
-        ImGuiController.OnMouseMove(e);
-    }
-
     private static int _control = 3;
     private static int _projection;
-    private void RenderGui()
+    protected override void BuildGuiLayout()
     {
         ImGui.Begin("Camera");
         if (ImGui.CollapsingHeader("Control"))
         {
-            ImGui.Indent(10);
+            using var indent = new ImGuiIndent(10.0f);
             if (ImGui.RadioButton("No Control", ref _control, 0))
                 Camera.Control = new NoControl(Camera.Control);
             if (ImGui.RadioButton("Orbital Control", ref _control, 1))
@@ -214,41 +166,22 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                 Camera.Control = new FlyByControl(Camera.Control);
             if (ImGui.RadioButton("Editor Control", ref _control, 3))
                 Camera.Control = new EditorControl(Camera.Control);
-
-            ImGui.Indent(-10);
         }
 
         if (ImGui.CollapsingHeader("Projection"))
         {
-            ImGui.Indent(10);
+            using var indent = new ImGuiIndent(10.0f);
             if (ImGui.RadioButton("Perspective", ref _projection, 0))
                 Camera.Projection = new PerspectiveProjection { Aspect = Camera.Aspect };
             if (ImGui.RadioButton("Orthographic", ref _projection, 1))
                 Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect };
-            ImGui.Indent(-10);
         }
 
         ImGui.End();
-        
-        Sky.ShowGui();
+
+        Sky.Gui();
 
         ImGui.ShowDemoWindow();
-
-        ImGuiController.Render();
-    }
-
-    protected override void OnTextInput(TextInputEventArgs e)
-    {
-        base.OnTextInput(e);
-
-        ImGuiController.OnPressedChar((char)e.Unicode);
-    }
-
-    protected override void OnMouseWheel(MouseWheelEventArgs e)
-    {
-        base.OnMouseWheel(e);
-
-        ImGuiController.OnMouseScroll(e);
     }
 
     private static void OnDebugMessage(
