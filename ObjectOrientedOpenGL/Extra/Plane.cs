@@ -13,13 +13,14 @@ public class Plane : IDisposable
 
     public Plane()
     {
-        Vector4[] vertices = {
+        Vector4[] vertices =
+        [
             new(0, 0, 0, 1),
             new(1, 0, 0, 0),
             new(0, 0, 1, 0),
             new(-1, 0, 0, 0),
             new(0, 0, -1, 0)
-        };
+        ];
         byte[] indices = {
             0, 1, 2,
             0, 2, 3,
