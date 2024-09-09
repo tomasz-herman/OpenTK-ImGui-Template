@@ -6,7 +6,7 @@ public class Framebuffer : IBindable, IDisposable
 {
     public int Handle { get; }
     private Dictionary<FramebufferAttachment, Texture> TextureAttachments { get; } = new();
-    private Dictionary<FramebufferAttachment, RenderBuffer> RenderBufferAttachments { get; } = new();
+    private Dictionary<FramebufferAttachment, Renderbuffer> RenderBufferAttachments { get; } = new();
 
     public Framebuffer()
     {
@@ -20,10 +20,10 @@ public class Framebuffer : IBindable, IDisposable
         GL.NamedFramebufferTexture(Handle, attachment, texture.Handle, level);
     }
     
-    public void AttachRenderBuffer(FramebufferAttachment attachment, RenderBuffer renderBuffer)
+    public void AttachRenderBuffer(FramebufferAttachment attachment, Renderbuffer renderbuffer)
     {
-        RenderBufferAttachments[attachment] = renderBuffer;
-        GL.NamedFramebufferRenderbuffer(Handle, attachment, RenderbufferTarget.Renderbuffer, renderBuffer.Handle);
+        RenderBufferAttachments[attachment] = renderbuffer;
+        GL.NamedFramebufferRenderbuffer(Handle, attachment, RenderbufferTarget.Renderbuffer, renderbuffer.Handle);
     }
 
     public void CheckStatus()

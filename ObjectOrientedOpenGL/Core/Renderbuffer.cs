@@ -2,11 +2,11 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace ObjectOrientedOpenGL.Core;
 
-public class RenderBuffer : IDisposable, IBindable
+public class Renderbuffer : IDisposable, IBindable
 {
     public int Handle { get; }
 
-    public RenderBuffer()
+    public Renderbuffer()
     {
         GL.CreateRenderbuffers(1, out int handle);
         Handle = handle;
