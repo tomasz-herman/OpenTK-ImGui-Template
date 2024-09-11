@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using System.Runtime.InteropServices;
+using ImGuiNET;
 using ObjectOrientedOpenGL.Core;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -9,6 +10,8 @@ namespace ObjectOrientedOpenGL.Extra;
 
 public unsafe class ImGuiController : IDisposable
 {
+    private const string SupportedCharacters = "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ";
+    
     private bool _frameBegun;
 
     private Texture FontTexture { get; }
@@ -167,7 +170,7 @@ public unsafe class ImGuiController : IDisposable
 
     private System.Numerics.Vector2 ScaleFactor { get; } = System.Numerics.Vector2.One;
 
-    public ImGuiController(int width, int height)
+    public ImGuiController(int width, int height, string? textureResource = null)
     {
         using var prevState = State.Save();
         _windowWidth = width;
@@ -185,18 +188,52 @@ public unsafe class ImGuiController : IDisposable
             new VertexBuffer.Attribute(2, 4, VertexAttribType.UnsignedByte, true));
         Mesh = new Mesh("ImGui", PrimitiveType.Triangles, IndexBuffer, VertexBuffer);
 
-        CreateContext();
+        CreateContext(textureResource);
     }
 
-    private void CreateContext()
+    private void CreateContext(string? textureResource = null)
     {
         IntPtr context = ImGui.CreateContext();
         ImGui.SetCurrentContext(context);
-        RecreateFontDeviceTexture();
+        RecreateFontDeviceTexture(textureResource);
         SetupClipboard();
         var io = ImGui.GetIO();
-        io.Fonts.AddFontDefault();
         io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
+        io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+    }
+    
+    private static IntPtr StreamToIntPtr(Stream stream, out int dataLength)
+    {
+        dataLength = (int)stream.Length;
+
+        IntPtr unmanagedData = Marshal.AllocHGlobal(dataLength);
+        
+        try
+        {
+            byte[] buffer = new byte[dataLength];
+
+            int totalBytesRead = 0;
+
+            while (totalBytesRead < dataLength)
+            {
+                var bytesRead = stream.Read(buffer, totalBytesRead, dataLength - totalBytesRead);
+                if (bytesRead == 0)
+                {
+                    throw new EndOfStreamException("Unexpected end of stream encountered");
+                }
+
+                totalBytesRead += bytesRead;
+            }
+
+            Marshal.Copy(buffer, 0, unmanagedData, dataLength);
+
+            return unmanagedData;
+        }
+        catch
+        {
+            Marshal.FreeHGlobal(unmanagedData);
+            throw;
+        }
     }
 
     public void OnWindowResized(int width, int height)
@@ -215,9 +252,33 @@ public unsafe class ImGuiController : IDisposable
         io.SetClipboardTextFn = new IntPtr(setClipboard);
     }
 
-    private void RecreateFontDeviceTexture()
+    private void RecreateFontDeviceTexture(string? textureResource = null)
     {
-        ImGuiIOPtr io = ImGui.GetIO();
+        var io = ImGui.GetIO();
+        nint fontData = 0;
+        if (textureResource is not null)
+        {
+            using var stream = ResourcesUtils.GetResourceStream(textureResource);
+            if (stream is not null)
+            {
+                var config = new ImFontConfigPtr(ImGuiNative.ImFontConfig_ImFontConfig())
+                {
+                    FontDataOwnedByAtlas = false
+                };
+                var ranges = BuildGlyphRanges();
+
+                fontData = StreamToIntPtr(stream, out int dataLength);
+                io.Fonts.AddFontFromMemoryTTF(fontData, dataLength, 20.0f, config, ranges.Data);
+            }
+        }
+
+        io.Fonts.AddFontDefault();
+        io.Fonts.Build();
+        if (fontData != IntPtr.Zero)
+        {
+            Marshal.FreeHGlobal(fontData);
+        }
+
         io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out int width, out int height);
 
         FontTexture.Bind();
@@ -225,11 +286,20 @@ public unsafe class ImGuiController : IDisposable
         FontTexture.Update(pixels, 0, 0, width, height, PixelFormat.Bgra, PixelType.UnsignedByte);
         FontTexture.ApplyOptions(
             Texture.Options.Default
-                .SetParameter(new Texture.EnumParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)));
+                .SetEnum(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear));
 
         io.Fonts.SetTexID(FontTexture.Handle);
-
         io.Fonts.ClearTexData();
+    }
+
+    private static ImVector BuildGlyphRanges()
+    {
+        var io = ImGui.GetIO();
+        var rangesBuilder = new ImFontGlyphRangesBuilderPtr(ImGuiNative.ImFontGlyphRangesBuilder_ImFontGlyphRangesBuilder());
+        rangesBuilder.AddText(SupportedCharacters);
+        rangesBuilder.AddRanges(io.Fonts.GetGlyphRangesDefault());
+        rangesBuilder.BuildRanges(out var ranges);
+        return ranges;
     }
 
     public void Render()

@@ -22,6 +22,11 @@
       <EmbeddedResource Include="Resources\Shaders\sky.frag" />
       <EmbeddedResource Include="Resources\Shaders\sky.vert" />
       <EmbeddedResource Include="Resources\Textures\grid.png" />
+      <EmbeddedResource Include="Resources\Fonts\NotoSansMono.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Resources\Fonts\" />
     </ItemGroup>
 
 </Project>

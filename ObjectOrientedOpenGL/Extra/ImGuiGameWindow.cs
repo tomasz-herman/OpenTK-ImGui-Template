@@ -6,13 +6,14 @@ namespace ObjectOrientedOpenGL.Extra;
 public class ImGuiGameWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
     : GameWindow(gameWindowSettings, nativeWindowSettings)
 {
+    private const string FontResource = "ObjectOrientedOpenGL.Resources.Fonts.NotoSansMono.ttf";
     private bool IsLoaded { get; set; }
     private ImGuiController ImGuiController { get; set; } = null!;
 
     protected override void OnLoad()
     {
         base.OnLoad();
-        ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y);
+        ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y, FontResource);
         IsLoaded = true;
     }
 

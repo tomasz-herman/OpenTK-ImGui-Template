@@ -132,6 +132,24 @@ public class Texture : IDisposable, IBindable
             Parameters[param.Name] = param;
             return this;
         }
+
+        public Options SetEnum(TextureParameterName name, Enum value)
+        {
+            Parameters[name] = new EnumParameter(name, value);
+            return this;
+        }
+        
+        public Options SetInt(TextureParameterName name, params int[] value)
+        {
+            Parameters[name] = new IntParameter(name, value);
+            return this;
+        }
+        
+        public Options SetFloat(TextureParameterName name, params float[] value)
+        {
+            Parameters[name] = new FloatParameter(name, value);
+            return this;
+        }
     }
 
     public interface IParameter
@@ -140,22 +158,10 @@ public class Texture : IDisposable, IBindable
         public void Apply(int texture);
     }
 
-    public class IntParameter : IParameter
+    public class IntParameter(TextureParameterName name, params int[] value) : IParameter
     {
-        public TextureParameterName Name { get; }
-        public int[] Value { get; }
-
-        public IntParameter(TextureParameterName name, int value)
-        {
-            Name = name;
-            Value = new[] { value };
-        }
-
-        public IntParameter(TextureParameterName name, int[] value)
-        {
-            Name = name;
-            Value = value;
-        }
+        public TextureParameterName Name { get; } = name;
+        public int[] Value { get; } = value;
 
         public void Apply(int texture)
         {
@@ -163,30 +169,12 @@ public class Texture : IDisposable, IBindable
         }
     }
 
-    public class EnumParameter : IntParameter
+    public class EnumParameter(TextureParameterName name, Enum value) : IntParameter(name, Convert.ToInt32(value));
+
+    public class FloatParameter(TextureParameterName name, params float[] value) : IParameter
     {
-        public EnumParameter(TextureParameterName name, Enum value) : base(name, Convert.ToInt32(value))
-        {
-        }
-    }
-
-    public class FloatParameter : IParameter
-    {
-        public TextureParameterName Name { get; }
-        public float[] Value { get; }
-
-
-        public FloatParameter(TextureParameterName name, float value)
-        {
-            Name = name;
-            Value = new[] { value };
-        }
-
-        public FloatParameter(TextureParameterName name, float[] value)
-        {
-            Name = name;
-            Value = value;
-        }
+        public TextureParameterName Name { get; } = name;
+        public float[] Value { get; } = value;
 
         public void Apply(int texture)
         {
