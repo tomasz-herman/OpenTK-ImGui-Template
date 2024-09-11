@@ -26,7 +26,7 @@ public class Canvas : IDisposable
 
     public Color4 GetColor(int x, int y)
     {
-        ref var pixel = ref _data[x, y];
+        ref var pixel = ref _data[y, x];
         return new Color4(pixel.r, pixel.g, pixel.b, pixel.a);
     }
     
@@ -36,7 +36,7 @@ public class Canvas : IDisposable
         {
             return;
         }
-        ref var pixel = ref _data[x, y];
+        ref var pixel = ref _data[y, x];
         pixel.r = (byte)(color.R * byte.MaxValue);
         pixel.g = (byte)(color.G * byte.MaxValue);
         pixel.b = (byte)(color.B * byte.MaxValue);
@@ -47,7 +47,7 @@ public class Canvas : IDisposable
     {
         Width = width;
         Height = height;
-        _data = new Pixel[width, height];
+        _data = new Pixel[height, width];
         Texture?.Dispose();
         Texture = new Texture();
         Texture.Allocate(width, height, SizedInternalFormat.Rgba8, 1);
