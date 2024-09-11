@@ -132,8 +132,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Canvas.SetColor(Random.Shared.Next(ClientSize.X), Random.Shared.Next(ClientSize.Y), Color.OrangeRed);
         Canvas.Update();
 
-        Console.WriteLine(ClientSize);
-        
         if (ImGui.GetIO().WantCaptureMouse) return;
 
         var keyboard = KeyboardState.GetSnapshot();
