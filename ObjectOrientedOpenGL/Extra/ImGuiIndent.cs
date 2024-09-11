@@ -14,6 +14,6 @@ public readonly struct ImGuiIndent : IDisposable
 
     public void Dispose()
     {
-        ImGui.Indent(-Value);
+        ImGui.Unindent(Value);
     }
 }
