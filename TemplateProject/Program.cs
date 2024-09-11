@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Drawing;
+using System.Runtime.InteropServices;
 using ImGuiNET;
 using ObjectOrientedOpenGL.Core;
 using ObjectOrientedOpenGL.Extra;
@@ -30,6 +31,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private Texture Texture { get; set; } = null!;
     private Billboard Label { get; set; } = null!;
     private Overlay Overlay { get; set; } = null!;
+    private Canvas Canvas { get; set; } = null!;
 
     private DebugProc DebugProcCallback { get; } = OnDebugMessage;
 
@@ -45,7 +47,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
         using var program = new Program(gwSettings, nwSettings);
         program.Title = "Project Title";
-        program.Size = new Vector2i(1280, 800);
+        program.ClientSize = new Vector2i(1280, 800);
         program.Run();
     }
 
@@ -96,6 +98,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Overlay = new Overlay(new Vector2(0, 10), () => ImGui.Text($"{DateTime.Now:HH:mm:ss}"), Anchor.TopCenter);
         Label = new Billboard(new Vector3(0, 0, 0), () => ImGui.TextColored(new Vector4(0, 0, 0, 1), "Origin"));
 
+        Canvas = new Canvas(ClientSize.X, ClientSize.Y);
+        
         GL.ClearColor(0.4f, 0.7f, 0.9f, 1.0f);
         GL.Disable(EnableCap.CullFace);
         GL.Enable(EnableCap.DepthTest);
@@ -114,6 +118,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
+        Canvas.Resize(ClientSize.X, ClientSize.Y);
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
         Camera.Aspect = (float)ClientSize.X / ClientSize.Y;
     }
@@ -124,7 +129,11 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
         Camera.Update((float)args.Time);
         Sky.Update();
+        Canvas.SetColor(Random.Shared.Next(ClientSize.X), Random.Shared.Next(ClientSize.Y), Color.OrangeRed);
+        Canvas.Update();
 
+        Console.WriteLine(ClientSize);
+        
         if (ImGui.GetIO().WantCaptureMouse) return;
 
         var keyboard = KeyboardState.GetSnapshot();
@@ -191,6 +200,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         
         Overlay.Render();
         Label.Render(Camera);
+        Canvas.Render();
     }
 
     private static void OnDebugMessage(

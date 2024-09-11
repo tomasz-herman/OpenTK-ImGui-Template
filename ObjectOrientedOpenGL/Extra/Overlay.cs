@@ -3,9 +3,10 @@ using ImGuiNET;
 
 namespace ObjectOrientedOpenGL.Extra;
 
-public class Overlay(Vector2tk position, Action draw, Anchor anchor = Anchor.TopLeft)
+public class Overlay(Vector2tk position, Action draw, Anchor anchor = Anchor.TopLeft, Vector2tk? size = null)
 {
     public Vector2tk Position { get; set; } = position;
+    public Vector2tk? Size { get; set; } = size;
     public Action Draw { get; set; } = draw;
     public Anchor Anchor { get; set; } = anchor;
     private static uint _id;
@@ -13,11 +14,10 @@ public class Overlay(Vector2tk position, Action draw, Anchor anchor = Anchor.Top
 
     private const ImGuiWindowFlags WindowFlags = ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoTitleBar |
                                                  ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove |
-                                                 ImGuiWindowFlags.NoScrollbar |
-                                                 ImGuiWindowFlags.NoCollapse |
-                                                 ImGuiWindowFlags.NoNav | ImGuiWindowFlags.AlwaysAutoResize |
-                                                 ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs |
-                                                 ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoFocusOnAppearing |
+                                                 ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoCollapse | 
+                                                 ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoDecoration | 
+                                                 ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoDocking |
+                                                 ImGuiWindowFlags.NoFocusOnAppearing | 
                                                  ImGuiWindowFlags.NoBringToFrontOnFocus;
 
     public void Render()
@@ -40,10 +40,19 @@ public class Overlay(Vector2tk position, Action draw, Anchor anchor = Anchor.Top
         };
 
         ImGui.SetNextWindowPos(position.ToSystem(), ImGuiCond.Always, pivot);
+        if (Size is not null)
+        {
+            ImGui.SetNextWindowSize(Size.Value.ToSystem(), ImGuiCond.Always);
+        }
         ImGui.SetNextWindowBgAlpha(0.0f);
-        ImGui.Begin(Name, WindowFlags);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
+        ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Vector2.Zero);
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, Vector2.Zero);
+        ImGui.Begin(Name, Size is null ? WindowFlags | ImGuiWindowFlags.AlwaysAutoResize : WindowFlags);
         Draw();
         ImGui.End();
+        ImGui.PopStyleVar(4);
     }
 }
 
