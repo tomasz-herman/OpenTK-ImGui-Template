@@ -22,6 +22,11 @@ public class Canvas<TColor, TColorConverter> : IDisposable
     private Pixel[] _data = null!;
     
     private ref Pixel this[int x, int y] => ref _data[y * Width + x];
+    public Vector2tk Position
+    {
+        get => Overlay.Position;
+        set => Overlay.Position = value;
+    }
 
     public Canvas(int width, int height, Vector2tk position = default)
     {
