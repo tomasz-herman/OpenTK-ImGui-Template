@@ -19,11 +19,13 @@ public class Canvas<TColor, TColorConverter> : IDisposable
     private Texture? Texture { get; set; }
     private Overlay Overlay { get; }
 
-    private Pixel[,] _data = null!;
+    private Pixel[] _data = null!;
+    
+    private ref Pixel this[int x, int y] => ref _data[y * Width + x];
 
-    public Canvas(int width, int height)
+    public Canvas(int width, int height, Vector2tk position = default)
     {
-        Overlay = new Overlay(Vector2tk.Zero,
+        Overlay = new Overlay(position,
             () => ImGui.Image(new IntPtr(Texture?.Handle ?? 0), new Vector2(Width, Height)));
         Resize(width, height);
     }
@@ -35,7 +37,7 @@ public class Canvas<TColor, TColorConverter> : IDisposable
             return default;
         }
         
-        return TColorConverter.PixelToColor(_data[y, x]);
+        return TColorConverter.PixelToColor(this[x, y]);
     }
     
     public void SetColor(int x, int y, TColor color)
@@ -45,14 +47,19 @@ public class Canvas<TColor, TColorConverter> : IDisposable
             return;
         }
 
-        _data[y, x] = TColorConverter.ColorToPixel(color);
+        this[x, y] = TColorConverter.ColorToPixel(color);
+    }
+
+    public void Clear(TColor color)
+    {
+        Array.Fill(_data, TColorConverter.ColorToPixel(color));        
     }
 
     public void Resize(int width, int height)
     {
         Width = width;
         Height = height;
-        _data = new Pixel[height, width];
+        _data = new Pixel[height * width];
         Texture?.Dispose();
         Texture = new Texture();
         Texture.Allocate(width, height, SizedInternalFormat.Rgba8, 1);

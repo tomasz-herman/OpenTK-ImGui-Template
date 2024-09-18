@@ -49,7 +49,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Overlay = new Overlay(new Vector2(10), () => { ImGui.Text($"{MousePos.X}, {MousePos.Y}");});
         Canvas = new Canvas<Color, SystemColorConverter>(ClientSize.X, ClientSize.Y);
         
-        GL.ClearColor(0.0f, 0.5f, 0.0f, 1.0f);
+        GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GL.Disable(EnableCap.DepthTest);
     }
 
@@ -79,6 +79,16 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         var mouse = MouseState.GetSnapshot();
 
         if (keyboard.IsKeyDown(Keys.Escape)) Close();
+    }
+
+    protected override void OnMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseDown(e);
+        var mouse = MouseState.GetSnapshot();
+        if (mouse.IsButtonDown(MouseButton.Right))
+        {
+            Canvas.Clear(Color.FromArgb(Random.Shared.Next()));
+        }
     }
 
     protected override void OnMouseMove(MouseMoveEventArgs e)
