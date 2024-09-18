@@ -15,6 +15,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 {
     private Overlay Overlay { get; set; } = null!;
     private Canvas<Color, SystemColorConverter> Canvas { get; set; } = null!;
+    private FpsCounter FpsCounter { get; set; } = null!;
     private Vector2i MousePos { get; set; }
 
     private DebugProc DebugProcCallback { get; } = OnDebugMessage;
@@ -48,6 +49,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
         Overlay = new Overlay(new Vector2(10), () => { ImGui.Text($"{MousePos.X}, {MousePos.Y}");});
         Canvas = new Canvas<Color, SystemColorConverter>(ClientSize.X, ClientSize.Y);
+        FpsCounter = new FpsCounter();
         
         GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GL.Disable(EnableCap.DepthTest);
@@ -64,7 +66,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         base.OnResize(e);
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-        Canvas.Resize(ClientSize.X, ClientSize.Y, false);
+        Canvas.Resize(ClientSize.X, ClientSize.Y);
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -72,6 +74,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         base.OnUpdateFrame(args);
         
         Canvas.Update();
+        FpsCounter.Update(args.Time);
 
         if (ImGui.GetIO().WantCaptureMouse) return;
 
@@ -109,6 +112,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         
         Overlay.Render();
+        FpsCounter.Render();
         Canvas.Render();
 
         RenderGui();
