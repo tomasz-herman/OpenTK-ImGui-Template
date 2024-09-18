@@ -55,16 +55,37 @@ public class Canvas<TColor, TColorConverter> : IDisposable
         this[x, y] = TColorConverter.ColorToPixel(color);
     }
 
-    public void Clear(TColor color)
+    public void Fill(TColor color = default)
     {
-        Array.Fill(_data, TColorConverter.ColorToPixel(color));        
+        Array.Fill(_data, TColorConverter.ColorToPixel(color));
     }
 
-    public void Resize(int width, int height)
+    public void Clear()
     {
+        Array.Clear(_data);
+    }
+
+    public void Resize(int width, int height, bool clear = true)
+    {
+        if (clear)
+        {
+            _data = new Pixel[height * width];
+        }
+        else
+        {
+            var newData = new Pixel[height * width];
+            int minWidth = Math.Min(width, Width);
+            int minHeight = Math.Min(height, Height);
+            for (int i = 0; i < minHeight; i++)
+            {
+                Array.Copy(_data, i * Width, newData, i * width, minWidth);
+            }
+
+            _data = newData;
+        }
+
         Width = width;
         Height = height;
-        _data = new Pixel[height * width];
         Texture?.Dispose();
         Texture = new Texture();
         Texture.Allocate(width, height, SizedInternalFormat.Rgba8, 1);

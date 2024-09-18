@@ -64,7 +64,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         base.OnResize(e);
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-        Canvas.Resize(ClientSize.X, ClientSize.Y);
+        Canvas.Resize(ClientSize.X, ClientSize.Y, false);
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -87,7 +87,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         var mouse = MouseState.GetSnapshot();
         if (mouse.IsButtonDown(MouseButton.Right))
         {
-            Canvas.Clear(Color.FromArgb(Random.Shared.Next()));
+            Canvas.Fill(Color.FromArgb(Random.Shared.Next()));
         }
     }
 
