@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Drawing;
+using System.Runtime.InteropServices;
 using ImGuiNET;
 using ObjectOrientedOpenGL.Extra;
 using OpenTK.Graphics.OpenGL4;
@@ -13,7 +14,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     : ImGuiGameWindow(gameWindowSettings, nativeWindowSettings)
 {
     private Overlay Overlay { get; set; } = null!;
-    private Canvas Canvas { get; set; } = null!;
+    private Canvas<Color, SystemColorConverter> Canvas { get; set; } = null!;
     private Vector2i MousePos { get; set; }
 
     private DebugProc DebugProcCallback { get; } = OnDebugMessage;
@@ -46,7 +47,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 #endif
 
         Overlay = new Overlay(new Vector2(10), () => { ImGui.Text($"{MousePos.X}, {MousePos.Y}");});
-        Canvas = new Canvas(ClientSize.X, ClientSize.Y);
+        Canvas = new Canvas<Color, SystemColorConverter>(ClientSize.X, ClientSize.Y);
         
         GL.ClearColor(0.0f, 0.5f, 0.0f, 1.0f);
         GL.Disable(EnableCap.DepthTest);
@@ -87,7 +88,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         MousePos = new Vector2i((int)e.X, (int)e.Y);
         if (mouse.IsButtonDown(MouseButton.Left))
         {
-            Canvas.SetColor(MousePos.X, MousePos.Y, Color4.White);
+            Canvas.SetColor(MousePos.X, MousePos.Y, Color.White);
         }
     }
 

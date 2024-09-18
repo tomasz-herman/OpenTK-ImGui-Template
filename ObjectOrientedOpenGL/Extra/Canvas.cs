@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using ImGuiNET;
 using ObjectOrientedOpenGL.Core;
@@ -7,7 +9,9 @@ using Vector2 = System.Numerics.Vector2;
 
 namespace ObjectOrientedOpenGL.Extra;
 
-public class Canvas : IDisposable
+public class Canvas<TColor, TColorConverter> : IDisposable 
+    where TColorConverter : IColorConverter<TColor> 
+    where TColor : struct
 {
     public int Width { get; private set; }
     public int Height { get; private set; }
@@ -24,23 +28,24 @@ public class Canvas : IDisposable
         Resize(width, height);
     }
 
-    public Color4 GetColor(int x, int y)
+    public TColor GetColor(int x, int y)
     {
-        ref var pixel = ref _data[y, x];
-        return new Color4(pixel.r, pixel.g, pixel.b, pixel.a);
+        if (x < 0 || x >= Width || y < 0 || y >= Height)
+        {
+            return default;
+        }
+        
+        return TColorConverter.PixelToColor(_data[y, x]);
     }
     
-    public void SetColor(int x, int y, Color4 color)
+    public void SetColor(int x, int y, TColor color)
     {
         if (x < 0 || x >= Width || y < 0 || y >= Height)
         {
             return;
         }
-        ref var pixel = ref _data[y, x];
-        pixel.r = (byte)(color.R * byte.MaxValue);
-        pixel.g = (byte)(color.G * byte.MaxValue);
-        pixel.b = (byte)(color.B * byte.MaxValue);
-        pixel.a = (byte)(color.A * byte.MaxValue);
+
+        _data[y, x] = TColorConverter.ColorToPixel(color);
     }
 
     public void Resize(int width, int height)
@@ -70,15 +75,55 @@ public class Canvas : IDisposable
         Texture!.Dispose();
         GC.SuppressFinalize(this);
     }
+}
 
-    [StructLayout(LayoutKind.Explicit)]
-    private struct Pixel
+[StructLayout(LayoutKind.Explicit)]
+public struct Pixel
+{
+    [FieldOffset(0)] public uint Rgba;
+
+    [FieldOffset(0)] public byte R;
+    [FieldOffset(1)] public byte G;
+    [FieldOffset(2)] public byte B;
+    [FieldOffset(3)] public byte A;
+}
+
+public interface IColorConverter<TColor>
+    where TColor : struct
+{
+    static abstract Pixel ColorToPixel(TColor color);
+    static abstract TColor PixelToColor(Pixel pixel);
+}
+
+public abstract class OpenTkColor4Converter : IColorConverter<Color4>
+{
+    public static Pixel ColorToPixel(Color4 color)
     {
-        [FieldOffset(0)] public uint rgba;
+        return new Pixel
+        {
+            R = (byte)(color.R * byte.MaxValue),
+            G = (byte)(color.G * byte.MaxValue),
+            B = (byte)(color.B * byte.MaxValue),
+            A = (byte)(color.A * byte.MaxValue)
+        };
+    }
 
-        [FieldOffset(0)] public byte r;
-        [FieldOffset(1)] public byte g;
-        [FieldOffset(2)] public byte b;
-        [FieldOffset(3)] public byte a;
+    public static Color4 PixelToColor(Pixel pixel)
+    {
+        return new Color4(pixel.R, pixel.G, pixel.B, pixel.A);
     }
 }
+
+public abstract class SystemColorConverter : IColorConverter<Color>
+{
+    public static Pixel ColorToPixel(Color color)
+    {
+        return new Pixel { R = color.R, G = color.G, B = color.B, A = color.A };
+    }
+
+    public static Color PixelToColor(Pixel pixel)
+    {
+        return Color.FromArgb((int)BitOperations.RotateRight(pixel.Rgba, 8));
+    }
+}
+
