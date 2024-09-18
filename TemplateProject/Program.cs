@@ -31,6 +31,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private Texture Texture { get; set; } = null!;
     private Billboard Label { get; set; } = null!;
     private Overlay Overlay { get; set; } = null!;
+    private FpsCounter FpsCounter { get; set; } = null!;
     private Canvas<Color4, OpenTkColor4Converter> Canvas { get; set; } = null!;
 
     private DebugProc DebugProcCallback { get; } = OnDebugMessage;
@@ -99,6 +100,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Label = new Billboard(new Vector3(0, 0, 0), () => ImGui.TextColored(new Vector4(0, 0, 0, 1), "Origin"));
 
         Canvas = new Canvas<Color4, OpenTkColor4Converter>(ClientSize.X, ClientSize.Y);
+
+        FpsCounter = new FpsCounter();
         
         GL.ClearColor(0.4f, 0.7f, 0.9f, 1.0f);
         GL.Disable(EnableCap.CullFace);
@@ -126,6 +129,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         base.OnUpdateFrame(args);
+        
+        FpsCounter.Update(args.Time);
 
         Camera.Update((float)args.Time);
         Sky.Update();
@@ -147,6 +152,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         base.OnRenderFrame(args);
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        
+        FpsCounter.Render();
 
         Sky.Render(Camera);
         Plane.Render(Camera);
