@@ -84,7 +84,7 @@ public sealed class SceneRenderer : IDisposable
 
         // 2. Main Pass
         if (ShowSky) Sky?.Render(camera);
-        if (ShowGroundPlane) GroundPlane?.Render(camera);
+        if (ShowGroundPlane) GroundPlane?.Render(camera, ShadowsEnabled ? ShadowMap : null, Pbr.SunDirection);
 
         Pbr.BeginFrame(camera, pointLights[..pointLightCount], ShadowsEnabled ? ShadowMap : null);
 
