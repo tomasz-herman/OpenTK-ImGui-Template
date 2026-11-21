@@ -15,9 +15,8 @@
     <IntelSponzaIvyDir Condition="'$(IntelSponzaIvyDir)' == ''">$(MSBuildProjectDirectory)/Assets/IntelSponzaIvy</IntelSponzaIvyDir>
     <IntelSponzaIvyMarker>$(IntelSponzaIvyDir)/.complete</IntelSponzaIvyMarker>
 
-    <IntelSponzaKnightUrl Condition="'$(IntelSponzaKnightUrl)' == ''">https://cdrdv2.intel.com/v1/dl/getContent/763175</IntelSponzaKnightUrl>
-    <IntelSponzaKnightDir Condition="'$(IntelSponzaKnightDir)' == ''">$(MSBuildProjectDirectory)/Assets/IntelSponzaKnight</IntelSponzaKnightDir>
-    <IntelSponzaKnightMarker>$(IntelSponzaKnightDir)/.complete</IntelSponzaKnightMarker>
+    <AnimatedCharacterUrl Condition="'$(AnimatedCharacterUrl)' == ''">https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb</AnimatedCharacterUrl>
+    <AnimatedCharacterPath Condition="'$(AnimatedCharacterPath)' == ''">$(MSBuildProjectDirectory)/Assets/AnimatedCharacter/Fox.glb</AnimatedCharacterPath>
   </PropertyGroup>
 
   <UsingTask
@@ -163,10 +162,7 @@ public sealed class FetchIntelGltfZipTask : Task
 
         public HttpRangeStream(HttpClient http, string sourceUrl, Uri uri, long length)
         {
-            _http = http;
-            _sourceUrl = sourceUrl;
-            _uri = uri;
-            _length = length;
+            _http = http; _sourceUrl = sourceUrl; _uri = uri; _length = length;
         }
 
         public override bool CanRead => true;
@@ -240,220 +236,48 @@ public sealed class FetchIntelGltfZipTask : Task
   </UsingTask>
 
   <UsingTask
-    TaskName="FetchIntelKnightTask"
+    TaskName="FetchSingleFileTask"
     TaskFactory="RoslynCodeTaskFactory"
     AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
+      <Label ParameterType="System.String" Required="true" />
       <Url ParameterType="System.String" Required="true" />
-      <OutputDir ParameterType="System.String" Required="true" />
-      <MarkerFile ParameterType="System.String" Required="true" />
+      <OutputPath ParameterType="System.String" Required="true" />
     </ParameterGroup>
     <Task>
       <Code Type="Class" Language="cs">
         <![CDATA[
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
-public sealed class FetchIntelKnightTask : Task
+public sealed class FetchSingleFileTask : Task
 {
+    [Required] public string Label { get; set; } = "";
     [Required] public string Url { get; set; } = "";
-    [Required] public string OutputDir { get; set; } = "";
-    [Required] public string MarkerFile { get; set; } = "";
+    [Required] public string OutputPath { get; set; } = "";
 
     public override bool Execute()
     {
         try
         {
-            Directory.CreateDirectory(OutputDir);
-            string glbOut = Path.Combine(OutputDir, "Knight.glb");
-
-            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+            string dir = Path.GetDirectoryName(OutputPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            Log.LogMessage(MessageImportance.High, $"[{Label}] Downloading {Url}...");
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("OpenTK-ImGui-Template/1.0");
-
-            // Check if Blender is available to convert Intel's FBX Animated Knight -> glTF (.glb)
-            bool hasBlender = HasExecutable("blender");
-            if (hasBlender)
-            {
-                Log.LogMessage(MessageImportance.High, $"[IntelKnight] Fetching Intel Animated Knight FBX + textures from {Url}...");
-                using var headReq = new HttpRequestMessage(HttpMethod.Head, Url);
-                using var headResp = http.SendAsync(headReq).GetAwaiter().GetResult();
-                headResp.EnsureSuccessStatusCode();
-                var resolvedUrl = headResp.RequestMessage?.RequestUri ?? new Uri(Url);
-                long totalZipSize = headResp.Content.Headers.ContentLength
-                    ?? throw new InvalidOperationException("No Content-Length.");
-
-                using var remoteStream = new BufferedStream(new RangeStream(http, Url, resolvedUrl, totalZipSize), 4 * 1024 * 1024);
-                using var zip = new ZipArchive(remoteStream, ZipArchiveMode.Read, leaveOpen: false);
-
-                var toExtract = zip.Entries.Where(e =>
-                    !string.IsNullOrEmpty(e.Name) &&
-                    (e.FullName.EndsWith("Knight_USD_002.fbx", StringComparison.OrdinalIgnoreCase) ||
-                     e.FullName.IndexOf("/Textures/", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     e.FullName.EndsWith("credits_license.txt", StringComparison.OrdinalIgnoreCase))).ToList();
-
-                Log.LogMessage(MessageImportance.High, $"[IntelKnight] Extracting {toExtract.Count} files ({toExtract.Sum(e => e.Length) / (1024.0 * 1024.0):F1} MB)...");
-                string fbxPath = "";
-                foreach (var entry in toExtract)
-                {
-                    string rel = entry.FullName;
-                    int slash = rel.IndexOf('/');
-                    if (slash >= 0) rel = rel.Substring(slash + 1);
-                    string dest = Path.Combine(OutputDir, rel.Replace('/', Path.DirectorySeparatorChar));
-                    string destDir = Path.GetDirectoryName(dest);
-                    if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
-                    if (dest.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)) fbxPath = dest;
-                    if (File.Exists(dest) && new FileInfo(dest).Length == entry.Length) continue;
-                    using var src = entry.Open();
-                    using var dst = File.Create(dest);
-                    src.CopyTo(dst, 1024 * 1024);
-                }
-
-                if (!string.IsNullOrEmpty(fbxPath) && File.Exists(fbxPath))
-                {
-                    Log.LogMessage(MessageImportance.High, "[IntelKnight] Converting Knight_USD_002.fbx -> Knight.glb via Blender...");
-                    string pyScript = Path.Combine(OutputDir, "_convert_knight.py");
-                    string fbxEsc = fbxPath.Replace("\\", "/");
-                    string glbEsc = glbOut.Replace("\\", "/");
-                    string texEsc = Path.Combine(OutputDir, "Textures").Replace("\\", "/");
-                    File.WriteAllText(pyScript,
-                        "import bpy, os\n" +
-                        "bpy.ops.wm.read_factory_settings(use_empty=True)\n" +
-                        $"bpy.ops.import_scene.fbx(filepath='{fbxEsc}', use_anim=True, automatic_bone_orientation=True)\n" +
-                        $"if os.path.isdir('{texEsc}'):\n" +
-                        $"    bpy.ops.file.find_missing_files(directory='{texEsc}')\n" +
-                        $"bpy.ops.export_scene.gltf(filepath='{glbEsc}', export_format='GLB', export_animations=True, export_skins=True, export_texcoords=True, export_normals=True, export_materials='EXPORT')\n");
-
-                    var psi = new ProcessStartInfo("blender", $"--background --python \"{pyScript}\"")
-                    {
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false
-                    };
-                    using var proc = Process.Start(psi);
-                    if (proc != null)
-                    {
-                        proc.StandardOutput.ReadToEnd();
-                        proc.StandardError.ReadToEnd();
-                        proc.WaitForExit();
-                    }
-                    try { File.Delete(pyScript); } catch { }
-                }
-            }
-
-            // Fallback: if Blender isn't installed or conversion failed, fetch Khronos animated Fox.glb (~300 KB)
-            if (!File.Exists(glbOut))
-            {
-                string foxOut = Path.Combine(OutputDir, "Fox.glb");
-                Log.LogMessage(MessageImportance.High, "[IntelKnight] Blender not available for FBX->GLB; downloading Khronos animated Fox.glb fallback...");
-                var bytes = http.GetByteArrayAsync("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb").GetAwaiter().GetResult();
-                File.WriteAllBytes(foxOut, bytes);
-            }
-
-            File.WriteAllText(MarkerFile, DateTime.UtcNow.ToString("O"));
-            Log.LogMessage(MessageImportance.High, "[IntelKnight] Ready.");
+            var bytes = http.GetByteArrayAsync(Url).GetAwaiter().GetResult();
+            File.WriteAllBytes(OutputPath, bytes);
+            Log.LogMessage(MessageImportance.High, $"[{Label}] Saved {OutputPath} ({bytes.Length / 1024.0:F1} KB).");
             return true;
         }
         catch (Exception ex)
         {
-            Log.LogWarning($"[IntelKnight] Failed: {ex.Message}");
+            Log.LogWarning($"[{Label}] Failed to download: {ex.Message}");
             return true;
         }
-    }
-
-    private static bool HasExecutable(string name)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(name, "--version")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
-            using var p = Process.Start(psi);
-            p?.WaitForExit(3000);
-            return p != null && p.ExitCode == 0;
-        }
-        catch { return false; }
-    }
-
-    private sealed class RangeStream : Stream
-    {
-        private readonly HttpClient _http;
-        private readonly string _sourceUrl;
-        private Uri _uri;
-        private readonly long _length;
-        private long _position;
-
-        public RangeStream(HttpClient http, string sourceUrl, Uri uri, long length)
-        {
-            _http = http; _sourceUrl = sourceUrl; _uri = uri; _length = length;
-        }
-
-        public override bool CanRead => true;
-        public override bool CanSeek => true;
-        public override bool CanWrite => false;
-        public override long Length => _length;
-        public override long Position
-        {
-            get => _position;
-            set => _position = Math.Min(Math.Max(value, 0), _length);
-        }
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            if (_position >= _length || count <= 0) return 0;
-            long end = Math.Min(_position + count - 1, _length - 1);
-            for (int attempt = 0; attempt < 3; attempt++)
-            {
-                using var req = new HttpRequestMessage(HttpMethod.Get, _uri);
-                req.Headers.Range = new RangeHeaderValue(_position, end);
-                using var resp = _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).GetAwaiter().GetResult();
-                if (resp.StatusCode == HttpStatusCode.Forbidden && attempt < 2)
-                {
-                    using var hr = new HttpRequestMessage(HttpMethod.Head, _sourceUrl);
-                    using var hresp = _http.SendAsync(hr).GetAwaiter().GetResult();
-                    hresp.EnsureSuccessStatusCode();
-                    _uri = hresp.RequestMessage?.RequestUri ?? new Uri(_sourceUrl);
-                    continue;
-                }
-                resp.EnsureSuccessStatusCode();
-                using var s = resp.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
-                int total = 0;
-                while (total < count)
-                {
-                    int n = s.Read(buffer, offset + total, count - total);
-                    if (n == 0) break;
-                    total += n;
-                }
-                _position += total;
-                return total;
-            }
-            throw new IOException("Range read failed.");
-        }
-
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            _position = origin switch
-            {
-                SeekOrigin.Begin => offset,
-                SeekOrigin.Current => _position + offset,
-                SeekOrigin.End => _length + offset,
-                _ => throw new ArgumentOutOfRangeException(nameof(origin))
-            };
-            return _position;
-        }
-        public override void Flush() { }
-        public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }
         ]]>
@@ -482,10 +306,10 @@ public sealed class FetchIntelKnightTask : Task
       Url="$(IntelSponzaIvyUrl)"
       OutputDir="$(IntelSponzaIvyDir)"
       MarkerFile="$(IntelSponzaIvyMarker)" />
-    <FetchIntelKnightTask
-      Condition="!Exists('$(IntelSponzaKnightMarker)')"
-      Url="$(IntelSponzaKnightUrl)"
-      OutputDir="$(IntelSponzaKnightDir)"
-      MarkerFile="$(IntelSponzaKnightMarker)" />
+    <FetchSingleFileTask
+      Condition="!Exists('$(AnimatedCharacterPath)')"
+      Label="AnimatedFox"
+      Url="$(AnimatedCharacterUrl)"
+      OutputPath="$(AnimatedCharacterPath)" />
   </Target>
 </Project>

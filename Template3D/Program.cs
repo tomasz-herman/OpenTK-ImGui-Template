@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using ImSharp;
 using ObjectOrientedOpenGL.Core;
 using ObjectOrientedOpenGL.Extra;
@@ -10,7 +9,6 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using SharpGLTF.Schema2;
 using Camera = ObjectOrientedOpenGL.Core.Camera;
 using Mesh = ObjectOrientedOpenGL.Core.Mesh;
 using Vector3 = OpenTK.Mathematics.Vector3;
@@ -26,22 +24,33 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private SceneRenderer SceneRenderer { get; set; } = null!;
     private SceneEditorPanel EditorPanel { get; set; } = null!;
     private FpsCounter FpsCounter { get; set; } = null!;
-    private Billboard OriginLabel { get; set; } = null!;
     private Model? LoadedModel { get; set; }
-    private readonly List<Model> _addonModels = [];
+    private Entity? _sunEntity;
+    private Entity? _animatedCharacterEntity;
 
     private Mesh _physicsCubeMesh = null!;
     private Mesh _physicsSphereMesh = null!;
     private int _spawnCounter;
+    private readonly List<Model> _addonModels = [];
     private readonly List<Mesh> _proceduralMeshes = [];
     private readonly string? _initialModelPath = initialModelPath;
     private readonly byte[] _gltfPathBuf = new byte[512];
     private string _sceneStatus = string.Empty;
     private bool _isGltfScene;
+
+    // Camera settings
     private int _controlMode = 2;
     private int _projectionMode;
     private float _flySpeed = 5.0f;
-    private bool _showOriginLabel;
+    private float _mouseSensitivity = 0.003f;
+
+    // Sky & Day/Night cycle settings
+    private float _timeOfDayHours = 13.5f;
+    private float _sunAzimuthDeg = 28.0f;
+    private float _sunIntensityScale = 4.2f;
+    private bool _autoDayNightCycle;
+    private float _dayNightSpeedHoursPerSec = 1.0f;
+
     private bool _showDemoWindow;
 
     public static void Main(string[] args)
@@ -53,7 +62,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         nwSettings.NumberOfSamples = 4;
 
         using var program = new Program(gwSettings, nwSettings, cliModel);
-        program.Title = "OpenTK-ImGui-Template — 3D Engine (glTF 2.0 / Sponza)";
+        program.Title = "OpenTK-ImGui-Template — 3D Engine (glTF 2.0 / Intel Sponza)";
         program.ClientSize = new Vector2i(1440, 900);
         program.Run();
     }
@@ -63,7 +72,11 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         base.OnLoad();
 
         Camera = new Camera(
-            new FlyByControl(new Vector3(-7.0f, 2.0f, 0.0f), new Vector3(4.0f, 2.8f, 0.0f)) { Speed = _flySpeed },
+            new FlyByControl(new Vector3(-7.0f, 2.0f, 0.0f), new Vector3(4.0f, 2.5f, 0.0f))
+            {
+                Speed = _flySpeed,
+                RotationSpeed = _mouseSensitivity
+            },
             new PerspectiveProjection { Aspect = (float)ClientSize.X / Math.Max(ClientSize.Y, 1), Near = 0.1f, Far = 300.0f });
 
         World = new World();
@@ -72,7 +85,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         SceneRenderer = new SceneRenderer(withSky: true, withGroundPlane: true);
         EditorPanel = new SceneEditorPanel { Physics = Physics };
         FpsCounter = new FpsCounter();
-        OriginLabel = new Billboard(Vector3.Zero, () => ImGui.TextColored(new ImVec4(1, 1, 1, 0.85f), "Origin"));
         _physicsCubeMesh = PrimitiveMeshes.CreateCube(1.0f, "PhysicsCrate");
         _physicsSphereMesh = PrimitiveMeshes.CreateSphere(0.45f, 20, 28, "PhysicsSphere");
 
@@ -84,7 +96,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         }
         else
         {
-            SetPathInput(Path.Combine("Template3D", "Assets", "Sponza", "Sponza.gltf"));
+            SetPathInput(Path.Combine("Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"));
             BuildProceduralDemoScene();
         }
 
@@ -121,13 +133,17 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
     private static string? FindDefaultSponzaPath() => FindAssetPath(
         Path.Combine("Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
-        Path.Combine("Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
-        Path.Combine("Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
-        Path.Combine("Template3D", "Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"));
+        Path.Combine("Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"));
+
+    private static string? FindAnimatedCharacterPath() => FindAssetPath(
+        Path.Combine("Assets", "AnimatedCharacter", "Fox.glb"),
+        Path.Combine("Template3D", "Assets", "AnimatedCharacter", "Fox.glb"));
 
     private void ClearScene()
     {
         EditorPanel.SelectedEntity = null;
+        _sunEntity = null;
+        _animatedCharacterEntity = null;
         Physics.Reset();
         World.Clear();
         LoadedModel?.Dispose();
@@ -149,11 +165,12 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         floor.Get<TransformComponent>().Position = new Vector3(0f, floorY - 0.5f, 0f);
     }
 
-    private void SpawnPhysicsCrate(Vector3 position)
+    private void SpawnPhysicsCrate(Vector3 position, Vector3? color = null)
     {
         int id = ++_spawnCounter;
+        var col = color ?? new Vector3(0.76f, 0.48f, 0.26f);
         var crate = World.CreateEntity($"Crate #{id}")
-            .Add(new MeshRendererComponent(_physicsCubeMesh, PbrMaterial.CreateColored($"CrateMat{id}", new Vector3(0.76f, 0.48f, 0.26f), metallic: 0.1f, roughness: 0.55f)))
+            .Add(new MeshRendererComponent(_physicsCubeMesh, PbrMaterial.CreateColored($"CrateMat{id}", col, metallic: 0.08f, roughness: 0.62f)))
             .Add(RigidBodyComponent.Dynamic(mass: 2.0f))
             .Add(ColliderComponent.Box(Vector3.One));
         crate.Get<TransformComponent>().Position = position;
@@ -173,6 +190,32 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         sphere.Get<TransformComponent>().Position = position;
     }
 
+    private void SpawnAnimatedCharacter(Vector3 floorPosition, float targetHeight = 1.25f, float yawDegrees = 90f)
+    {
+        string? charPath = FindAnimatedCharacterPath();
+        if (charPath is null) return;
+
+        var charModel = GltfModelLoader.Load(charPath);
+        _addonModels.Add(charModel);
+
+        var entity = World.SpawnModel(charModel, Path.GetFileNameWithoutExtension(charPath));
+        float h = MathF.Max(charModel.Bounds.Size.Y, 0.001f);
+        float scale = targetHeight / h;
+
+        var tr = entity.Get<TransformComponent>();
+        tr.Scale = new Vector3(scale);
+        tr.EulerAnglesDegrees = new Vector3(0f, yawDegrees, 0f);
+        tr.Position = new Vector3(
+            floorPosition.X,
+            floorPosition.Y - charModel.Bounds.Min.Y * scale,
+            floorPosition.Z);
+
+        if (entity.TryGet<AnimatorComponent>(out var anim) && anim is not null && anim.Clips.Count > 1)
+            anim.ActiveClipIndex = 1; // Default to "Walk" on Fox.glb
+
+        _animatedCharacterEntity = entity;
+    }
+
     private void LoadGltfScene(string path)
     {
         try
@@ -181,13 +224,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             ClearScene();
             LoadedModel = model;
             _isGltfScene = true;
-            _showOriginLabel = false;
             SceneRenderer.ShowGroundPlane = false;
             SceneRenderer.ShowSky = true;
-
-            // Courtyard + interior bounce ambient
-            SceneRenderer.Pbr.AmbientSky = new Vector3(0.45f, 0.52f, 0.65f);
-            SceneRenderer.Pbr.AmbientGround = new Vector3(0.22f, 0.19f, 0.16f);
 
             var modelRoot = World.SpawnModel(model);
             var bounds = model.Bounds;
@@ -195,14 +233,16 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             var size = bounds.Size;
             float diag = MathF.Max(size.Length, 1.0f);
 
-            SceneRenderer.ShadowFocus = center;
+            bool isSponza = Path.GetFileName(path).Contains("Sponza", StringComparison.OrdinalIgnoreCase);
+            float floorY = isSponza ? 0.0f : bounds.Min.Y;
+
+            SceneRenderer.ShadowFocus = new Vector3(center.X, floorY + 2.0f, center.Z);
             SceneRenderer.ShadowHalfExtent = Math.Clamp(MathF.Max(size.X, size.Z) * 0.6f, 12f, 35f);
 
-            AddStaticFloorCollider(bounds.Min.Y);
+            AddStaticFloorCollider(floorY);
 
-            // Auto-load Intel Sponza add-ons (Curtains, Ivy, Animated Knight) when loading Sponza
             int addonCount = 0;
-            if (Path.GetFileName(path).Contains("Sponza", StringComparison.OrdinalIgnoreCase))
+            if (isSponza)
             {
                 string? curtainsPath = FindAssetPath(
                     Path.Combine("Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"),
@@ -226,34 +266,20 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                     addonCount++;
                 }
 
-                string? knightPath = FindAssetPath(
-                    Path.Combine("Assets", "IntelSponzaKnight", "Knight.glb"),
-                    Path.Combine("Template3D", "Assets", "IntelSponzaKnight", "Knight.glb"),
-                    Path.Combine("Assets", "IntelSponzaKnight", "Fox.glb"),
-                    Path.Combine("Template3D", "Assets", "IntelSponzaKnight", "Fox.glb"));
-                if (knightPath != null)
-                {
-                    var knight = GltfModelLoader.Load(knightPath);
-                    _addonModels.Add(knight);
-                    var knightEntity = World.SpawnModel(knight, Path.GetFileNameWithoutExtension(knightPath));
-                    float knightHeight = MathF.Max(knight.Bounds.Size.Y, 0.001f);
-                    float scale = knightHeight > 4.0f || knightHeight < 0.6f ? 1.85f / knightHeight : 1.0f;
-                    var tr = knightEntity.Get<TransformComponent>();
-                    tr.Scale = new Vector3(scale);
-                    tr.Position = new Vector3(center.X, bounds.Min.Y - knight.Bounds.Min.Y * scale, center.Z);
+                SpawnAnimatedCharacter(new Vector3(center.X, floorY, center.Z), targetHeight: 1.25f, yawDegrees: -90f);
+                if (_animatedCharacterEntity.HasValue)
                     addonCount++;
-                }
             }
 
-            // High directional sun angling into the courtyard
-            var sun = World.CreateEntity("Sun Light")
-                .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.88f), Intensity = 4.2f });
-            sun.Get<TransformComponent>().EulerAnglesDegrees = new Vector3(-62f, 22f, 0f);
+            // Directional sun light driven by Sky & Time of Day
+            _sunEntity = World.CreateEntity("Sun Light")
+                .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.88f), Intensity = _sunIntensityScale });
+            ApplySkyAndSunLighting();
 
-            // Warm interior point lights along the main axis
-            float lightY = bounds.Min.Y + MathF.Min(3.2f, size.Y * 0.28f);
+            // Warm interior point lights along the main hall
+            float lightY = floorY + MathF.Min(3.4f, size.Y * 0.28f);
             float lightRange = MathF.Max(14.0f, size.X * 0.55f);
-            float lightIntensity = MathF.Max(18.0f, size.X * 1.1f);
+            float lightIntensity = MathF.Max(16.0f, size.X * 1.0f);
             float spanX = size.X * 0.28f;
 
             Vector3[] lightPositions =
@@ -276,19 +302,23 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                 pt.Get<TransformComponent>().Position = lightPositions[i];
             }
 
-            // Place FlyBy camera inside the atrium looking down the long axis
+            // Place FlyBy camera inside the atrium looking at the animated character & courtyard
             Vector3 camPos = new(
-                center.X - size.X * 0.28f,
-                bounds.Min.Y + MathF.Min(2.0f, size.Y * 0.18f),
-                center.Z);
+                center.X - size.X * 0.24f,
+                floorY + 1.85f,
+                center.Z + 0.4f);
             Vector3 camTarget = new(
-                center.X + size.X * 0.20f,
-                bounds.Min.Y + MathF.Min(2.8f, size.Y * 0.26f),
+                center.X + size.X * 0.08f,
+                floorY + 1.6f,
                 center.Z);
 
-            _flySpeed = Math.Clamp(diag * 0.14f, 1.5f, 15.0f);
+            _flySpeed = Math.Clamp(diag * 0.14f, 2.0f, 12.0f);
             _controlMode = 2;
-            Camera.Control = new FlyByControl(camPos, camTarget) { Speed = _flySpeed };
+            Camera.Control = new FlyByControl(camPos, camTarget)
+            {
+                Speed = _flySpeed,
+                RotationSpeed = _mouseSensitivity
+            };
             if (Camera.Projection is PerspectiveProjection persp)
             {
                 persp.Near = MathF.Max(0.05f, diag * 0.002f);
@@ -309,68 +339,134 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         ClearScene();
         _isGltfScene = false;
-        _showOriginLabel = true;
         SceneRenderer.ShowGroundPlane = true;
         SceneRenderer.ShowSky = true;
         SceneRenderer.ShadowFocus = new Vector3(0f, 1.0f, 0f);
-        SceneRenderer.ShadowHalfExtent = 10f;
-        SceneRenderer.Pbr.AmbientSky = new Vector3(0.28f, 0.36f, 0.48f);
-        SceneRenderer.Pbr.AmbientGround = new Vector3(0.10f, 0.09f, 0.08f);
+        SceneRenderer.ShadowHalfExtent = 12f;
 
-        // 1. Directional Sun Light
-        var sun = World.CreateEntity("Sun Light")
-            .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.90f), Intensity = 3.2f });
-        sun.Get<TransformComponent>().EulerAnglesDegrees = new Vector3(-45f, 35f, 0f);
+        // 1. Directional Sun Light (driven by Sky & Day/Night controls)
+        _sunEntity = World.CreateEntity("Sun Light")
+            .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.90f), Intensity = _sunIntensityScale });
+        ApplySkyAndSunLighting();
 
-        // 2. Hierarchical Scene Graph: Pedestal -> Rotating Hub -> Orbiting Metallic Spheres + Point Light
-        var cubeMesh = Track(PrimitiveMeshes.CreateCube(1.0f, "PedestalCube"));
-        var sphereMesh = Track(PrimitiveMeshes.CreateSphere(0.42f, 24, 32, "OrbSphere"));
-        var torusMesh = Track(PrimitiveMeshes.CreateTorus(0.65f, 0.18f, 36, 20, "CenterTorus"));
+        // 2. Clean PBR Material Showcase Row (5 spheres on a low stone plinth)
+        var plinthMesh = Track(PrimitiveMeshes.CreateCube(1.0f, "Plinth"));
+        var sphereMesh = Track(PrimitiveMeshes.CreateSphere(0.45f, 28, 36, "ShowcaseSphere"));
 
-        var pedestal = World.CreateEntity("Pedestal")
-            .Add(new MeshRendererComponent(cubeMesh, PbrMaterial.CreateColored("PedestalMat", new Vector3(0.28f, 0.30f, 0.35f), metallic: 0.2f, roughness: 0.65f)));
-        pedestal.Get<TransformComponent>().Position = new Vector3(0f, 0.25f, 0f);
-        pedestal.Get<TransformComponent>().Scale = new Vector3(2.2f, 0.5f, 2.2f);
+        var plinth = World.CreateEntity("Material Plinth")
+            .Add(new MeshRendererComponent(plinthMesh, PbrMaterial.CreateColored("PlinthMat", new Vector3(0.26f, 0.28f, 0.31f), metallic: 0.05f, roughness: 0.78f)));
+        plinth.Get<TransformComponent>().Position = new Vector3(0f, 0.1f, -2.5f);
+        plinth.Get<TransformComponent>().Scale = new Vector3(7.2f, 0.2f, 1.6f);
 
-        var centerTorus = World.CreateEntity("Gold Torus", pedestal)
-            .Add(new MeshRendererComponent(torusMesh, PbrMaterial.CreateColored("GoldMat", new Vector3(1.0f, 0.78f, 0.34f), metallic: 0.95f, roughness: 0.22f)))
-            .Add(new RotatorComponent(new Vector3(0.3f, 1.0f, 0.2f), 0.9f));
-        centerTorus.Get<TransformComponent>().Position = new Vector3(0f, 2.6f, 0f);
-        centerTorus.Get<TransformComponent>().Scale = new Vector3(0.45f, 2.0f, 0.45f);
+        (string Name, Vector3 Color, float Metallic, float Roughness)[] presets =
+        [
+            ("Matte Slate",  new(0.32f, 0.36f, 0.42f), 0.0f, 0.85f),
+            ("Ceramic Red",  new(0.82f, 0.16f, 0.18f), 0.0f, 0.25f),
+            ("Brushed Gold", new(1.00f, 0.78f, 0.34f), 0.95f, 0.28f),
+            ("Copper",       new(0.95f, 0.56f, 0.42f), 0.95f, 0.22f),
+            ("Chrome",       new(0.92f, 0.94f, 0.96f), 1.00f, 0.08f),
+        ];
 
-        var orbitPivot = World.CreateEntity("Orbit Pivot")
-            .Add(new RotatorComponent(Vector3.UnitY, 0.7f));
-        orbitPivot.Get<TransformComponent>().Position = new Vector3(0f, 1.4f, 0f);
+        for (int i = 0; i < presets.Length; i++)
+        {
+            var p = presets[i];
+            var orb = World.CreateEntity(p.Name)
+                .Add(new MeshRendererComponent(sphereMesh, PbrMaterial.CreateColored($"{p.Name}Mat", p.Color, p.Metallic, p.Roughness)));
+            orb.Get<TransformComponent>().Position = new Vector3((i - 2) * 1.4f, 0.65f, -2.5f);
+        }
 
-        var chromeOrb = World.CreateEntity("Chrome Sphere", orbitPivot)
-            .Add(new MeshRendererComponent(sphereMesh, PbrMaterial.CreateColored("ChromeMat", new Vector3(0.88f, 0.91f, 0.95f), metallic: 0.95f, roughness: 0.12f)));
-        chromeOrb.Get<TransformComponent>().Position = new Vector3(2.1f, 0f, 0f);
-
-        var crimsonOrb = World.CreateEntity("Crimson Sphere", orbitPivot)
-            .Add(new MeshRendererComponent(sphereMesh, PbrMaterial.CreateColored("CrimsonMat", new Vector3(0.85f, 0.18f, 0.22f), metallic: 0.15f, roughness: 0.32f)));
-        crimsonOrb.Get<TransformComponent>().Position = new Vector3(-2.1f, 0f, 0f);
-
-        var pointLight = World.CreateEntity("Orbiting Point Light", orbitPivot)
-            .Add(new LightComponent { Type = LightType.Point, Color = new Vector3(0.4f, 0.8f, 1.0f), Intensity = 10.0f, Range = 12.0f });
-        pointLight.Get<TransformComponent>().Position = new Vector3(0f, 0.6f, 2.2f);
-
-        // 3. Demonstrate SharpGLTF (.glb) loading & spawning into the ECS Scene Graph
-        using var glbStream = CreateSampleGlbStream();
-        LoadedModel = GltfModelLoader.LoadGlb(glbStream, "SharpGltfPyramid.glb");
-        var gltfRoot = World.SpawnModel(LoadedModel, "glTF Pyramid");
-        gltfRoot.Get<TransformComponent>().Position = new Vector3(3.0f, 0.0f, -1.5f);
-
-        // 4. BepuPhysics2 floor + dynamic crate stack
+        // 3. BepuPhysics2 Floor + 3-2-1 Crate Pyramid
         AddStaticFloorCollider(0f);
-        SpawnPhysicsCrate(new Vector3(-3.0f, 1.0f, 0.0f));
-        SpawnPhysicsCrate(new Vector3(-3.0f, 2.2f, 0.05f));
-        SpawnPhysicsSphere(new Vector3(-3.0f, 3.8f, -0.05f));
+        float baseX = 2.5f;
+        float baseZ = 0.5f;
+        SpawnPhysicsCrate(new Vector3(baseX - 1.05f, 0.5f, baseZ));
+        SpawnPhysicsCrate(new Vector3(baseX,         0.5f, baseZ));
+        SpawnPhysicsCrate(new Vector3(baseX + 1.05f, 0.5f, baseZ));
+        SpawnPhysicsCrate(new Vector3(baseX - 0.52f, 1.5f, baseZ));
+        SpawnPhysicsCrate(new Vector3(baseX + 0.52f, 1.5f, baseZ));
+        SpawnPhysicsCrate(new Vector3(baseX,         2.5f, baseZ), new Vector3(0.85f, 0.32f, 0.22f));
+
+        // 4. Animated glTF Fox on the left
+        SpawnAnimatedCharacter(new Vector3(-2.4f, 0f, 0.5f), targetHeight: 1.25f, yawDegrees: 30f);
 
         _controlMode = 3;
-        Camera.Control = new EditorControl(new Vector3(4.5f, 3.2f, 5.5f), new Vector3(0f, 1.0f, 0f));
-        EditorPanel.SelectedEntity = centerTorus;
-        Title = "OpenTK-ImGui-Template — 3D Game Engine Lite";
-        _sceneStatus = "Procedural PBR Demo";
+        Camera.Control = new EditorControl(new Vector3(0.0f, 3.8f, 8.5f), new Vector3(0.0f, 1.1f, -0.5f))
+        {
+            RotationSpeed = _mouseSensitivity
+        };
+        Title = "OpenTK-ImGui-Template — PBR & Physics Showcase";
+        _sceneStatus = "PBR Material & BepuPhysics2 Showcase";
+    }
+
+    private void ApplySkyAndSunLighting()
+    {
+        // Map 0..24 hours -> sun elevation angle (6:00 sunrise, 12:00 zenith, 18:00 sunset)
+        float hourAngle = (_timeOfDayHours - 6.0f) / 12.0f * MathF.PI;
+        float elev = MathF.Sin(hourAngle);
+        float horiz = MathF.Cos(hourAngle);
+        float azRad = _sunAzimuthDeg * (MathF.PI / 180f);
+
+        var sunDir = new Vector3(horiz * MathF.Cos(azRad), elev, horiz * MathF.Sin(azRad)).Normalized();
+
+        // Day factor (0 at night, 1 at high sun) & golden-hour warmth near horizon
+        float dayFactor = Math.Clamp(elev * 2.5f, 0f, 1f);
+        float horizonGlow = Math.Clamp(1.0f - MathF.Abs(elev) * 3.5f, 0f, 1f) * (elev > -0.15f ? 1f : 0f);
+
+        Vector3 noonColor = new(1.0f, 0.97f, 0.92f);
+        Vector3 sunsetColor = new(1.0f, 0.52f, 0.22f);
+        Vector3 nightColor = new(0.28f, 0.38f, 0.62f);
+
+        Vector3 sunColor = Vector3.Lerp(noonColor, sunsetColor, horizonGlow);
+        float effectiveIntensity = elev > -0.05f
+            ? _sunIntensityScale * Math.Clamp((elev + 0.05f) * 2.2f, 0f, 1f)
+            : 0.35f; // subtle moonlight
+
+        if (elev <= -0.05f)
+            sunColor = nightColor;
+
+        // Hemisphere ambient follows time of day
+        Vector3 skyDay = new(0.45f, 0.55f, 0.70f);
+        Vector3 skySunset = new(0.55f, 0.34f, 0.28f);
+        Vector3 skyNight = new(0.06f, 0.08f, 0.14f);
+
+        Vector3 groundDay = new(0.22f, 0.19f, 0.16f);
+        Vector3 groundNight = new(0.03f, 0.03f, 0.04f);
+
+        var ambientSky = Vector3.Lerp(skyNight, Vector3.Lerp(skyDay, skySunset, horizonGlow), dayFactor);
+        var ambientGround = Vector3.Lerp(groundNight, groundDay, dayFactor);
+
+        SceneRenderer.Pbr.AmbientSky = ambientSky;
+        SceneRenderer.Pbr.AmbientGround = ambientGround;
+
+        if (_sunEntity is { IsValid: true } sun)
+        {
+            var light = sun.Get<LightComponent>();
+            light.Color = sunColor;
+            light.Intensity = effectiveIntensity;
+
+            // Orient TransformComponent so -UnitZ points toward sunDir
+            var tr = sun.Get<TransformComponent>();
+            var activeDir = elev > -0.05f ? sunDir : -sunDir;
+            float pitch = MathF.Asin(Math.Clamp(activeDir.Y, -0.999f, 0.999f));
+            float yaw = MathF.Atan2(-activeDir.X, -activeDir.Z);
+            tr.Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, yaw) * Quaternion.FromAxisAngle(Vector3.UnitX, pitch);
+        }
+
+        if (SceneRenderer.Sky is not null)
+        {
+            SceneRenderer.Sky.SunDir = sunDir;
+            SceneRenderer.Sky.Update();
+        }
+    }
+
+    private void ApplyMouseSensitivity()
+    {
+        switch (Camera.Control)
+        {
+            case FlyByControl fly: fly.RotationSpeed = _mouseSensitivity; break;
+            case EditorControl ed: ed.RotationSpeed = _mouseSensitivity; break;
+            case OrbitalControl orb: orb.RotationSpeed = _mouseSensitivity; break;
+        }
     }
 
     private void SetPathInput(string path)
@@ -391,48 +487,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         _proceduralMeshes.Add(mesh);
         return mesh;
-    }
-
-    private static MemoryStream CreateSampleGlbStream()
-    {
-        var model = ModelRoot.CreateModel();
-        var mat = model.CreateMaterial("EmeraldPBR");
-        mat.InitializePBRMetallicRoughness();
-        var baseCol = mat.FindChannel("BaseColor")!.Value;
-        baseCol.Color = new System.Numerics.Vector4(0.15f, 0.78f, 0.45f, 1.0f);
-        var mr = mat.FindChannel("MetallicRoughness")!.Value;
-        mr.SetFactor("MetallicFactor", 0.35f);
-        mr.SetFactor("RoughnessFactor", 0.28f);
-
-        System.Numerics.Vector3[] positions =
-        [
-            new(-0.6f, 0f,  0.6f), new( 0.6f, 0f,  0.6f), new(0f, 1.2f, 0f),
-            new( 0.6f, 0f,  0.6f), new( 0.6f, 0f, -0.6f), new(0f, 1.2f, 0f),
-            new( 0.6f, 0f, -0.6f), new(-0.6f, 0f, -0.6f), new(0f, 1.2f, 0f),
-            new(-0.6f, 0f, -0.6f), new(-0.6f, 0f,  0.6f), new(0f, 1.2f, 0f),
-        ];
-        uint[] indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-
-        var posAccessor = model.CreateAccessor();
-        posAccessor.SetVertexData(model.UseBufferView(MemoryMarshal.AsBytes(positions.AsSpan()).ToArray()), 0, positions.Length, new SharpGLTF.Memory.AttributeFormat(DimensionType.VEC3));
-
-        var idxAccessor = model.CreateAccessor();
-        idxAccessor.SetIndexData(model.UseBufferView(MemoryMarshal.AsBytes(indices.AsSpan()).ToArray()), 0, indices.Length, IndexEncodingType.UNSIGNED_INT);
-
-        var mesh = model.CreateMesh("PyramidMesh");
-        var prim = mesh.CreatePrimitive();
-        prim.Material = mat;
-        prim.SetVertexAccessor("POSITION", posAccessor);
-        prim.SetIndexAccessor(idxAccessor);
-
-        var scene = model.UseScene("Default");
-        var node = scene.CreateNode("PyramidNode");
-        node.Mesh = mesh;
-
-        var ms = new MemoryStream();
-        model.WriteGLB(ms);
-        ms.Position = 0;
-        return ms;
     }
 
     protected override void OnUnload()
@@ -458,6 +512,13 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         base.OnUpdateFrame(args);
         float dt = (float)args.Time;
+
+        if (_autoDayNightCycle)
+        {
+            _timeOfDayHours = (_timeOfDayHours + dt * _dayNightSpeedHoursPerSec) % 24.0f;
+            if (_timeOfDayHours < 0f) _timeOfDayHours += 24.0f;
+            ApplySkyAndSunLighting();
+        }
 
         FpsCounter.Update(args.Time);
         World.Update(dt);
@@ -488,25 +549,23 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     protected override void BuildGuiLayout()
     {
         EditorPanel.Draw(World, Camera);
-        DrawCameraPanel();
+        DrawControlPanel();
         FpsCounter.Render();
-        if (_showOriginLabel)
-            OriginLabel.Render(Camera);
 
         if (_showDemoWindow)
             ImGui.ShowDemoWindow(ref _showDemoWindow);
     }
 
-    private void DrawCameraPanel()
+    private void DrawControlPanel()
     {
-        ImGui.SetNextWindowPos(new ImVec2(ClientSize.X - 310, 48), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new ImVec2(294, 370), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowPos(new ImVec2(ClientSize.X - 325, 48), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new ImVec2(310, 680), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin("Camera & Scene"))
+        if (ImGui.Begin("Scene, Sky & Controls"))
         {
             if (ImGui.CollapsingHeader("Scene", ImGuiTreeNodeFlags.DefaultOpen))
             {
-                if (ImGui.Button("Sponza"))
+                if (ImGui.Button("Intel Sponza"))
                 {
                     string? sponza = FindDefaultSponzaPath();
                     if (sponza != null)
@@ -516,11 +575,11 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                     }
                     else
                     {
-                        _sceneStatus = "Sponza.gltf not found in Template3D/Assets/Sponza/";
+                        _sceneStatus = "Intel Sponza not found. Rebuild Template3D to auto-download.";
                     }
                 }
                 ImGui.SameLine();
-                if (ImGui.Button("Procedural Demo"))
+                if (ImGui.Button("PBR & Physics Demo"))
                     BuildProceduralDemoScene();
 
                 ImGui.InputText("##gltfPath", _gltfPathBuf, (nuint)_gltfPathBuf.Length);
@@ -538,14 +597,77 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                 }
             }
 
+            // Sky & Directional Sun Lighting
+            if (ImGui.CollapsingHeader("Sky & Sun Lighting", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                int hh = (int)_timeOfDayHours;
+                int mm = (int)((_timeOfDayHours - hh) * 60f);
+                bool lightingChanged = false;
+
+                ImGui.Text($"Time: {hh:D2}:{mm:D2}");
+                lightingChanged |= ImGui.SliderFloat("Time of Day", ref _timeOfDayHours, 0f, 24f, "%.2f h");
+
+                ImGui.Checkbox("Auto Day/Night Cycle", ref _autoDayNightCycle);
+                if (_autoDayNightCycle)
+                    ImGui.SliderFloat("Cycle Speed", ref _dayNightSpeedHoursPerSec, 0.1f, 6.0f, "%.2f h/s");
+
+                lightingChanged |= ImGui.SliderFloat("Sun Azimuth", ref _sunAzimuthDeg, -180f, 180f, "%.0f deg");
+                lightingChanged |= ImGui.SliderFloat("Sun Intensity", ref _sunIntensityScale, 0f, 8f, "%.2f");
+
+                if (lightingChanged)
+                    ApplySkyAndSunLighting();
+
+                bool shadows = SceneRenderer.ShadowsEnabled;
+                if (ImGui.Checkbox("Shadows (PCF)", ref shadows)) SceneRenderer.ShadowsEnabled = shadows;
+                ImGui.SameLine();
+                bool showSky = SceneRenderer.ShowSky;
+                if (ImGui.Checkbox("Sky", ref showSky)) SceneRenderer.ShowSky = showSky;
+                ImGui.SameLine();
+                bool showGround = SceneRenderer.ShowGroundPlane;
+                if (ImGui.Checkbox("Grid", ref showGround)) SceneRenderer.ShowGroundPlane = showGround;
+            }
+
+            // Character Animation Controls (always accessible!)
+            if (_animatedCharacterEntity is { IsValid: true } animEntity &&
+                animEntity.TryGet<AnimatorComponent>(out var anim) && anim is not null &&
+                ImGui.CollapsingHeader("Character Animation", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                bool playing = anim.Playing;
+                if (ImGui.Checkbox("Play", ref playing)) anim.Playing = playing;
+                ImGui.SameLine();
+                bool loop = anim.Loop;
+                if (ImGui.Checkbox("Loop", ref loop)) anim.Loop = loop;
+
+                float speed = anim.Speed;
+                if (ImGui.SliderFloat("Anim Speed", ref speed, 0f, 3f, "%.2fx"))
+                    anim.Speed = speed;
+
+                if (anim.ActiveClip is { } clip)
+                {
+                    float t = anim.CurrentTime;
+                    if (ImGui.SliderFloat("Timeline", ref t, 0f, MathF.Max(clip.Duration, 0.001f), "%.2f s"))
+                        anim.CurrentTime = t;
+                }
+
+                for (int i = 0; i < anim.Clips.Count; i++)
+                {
+                    if (ImGui.RadioButton($"{anim.Clips[i].Name} ({anim.Clips[i].Duration:F2}s)##charclip{i}", anim.ActiveClipIndex == i))
+                    {
+                        anim.ActiveClipIndex = i;
+                        anim.CurrentTime = 0f;
+                    }
+                }
+            }
+
+            // Physics (BepuPhysics2)
             if (ImGui.CollapsingHeader("Physics (BepuPhysics2)", ImGuiTreeNodeFlags.DefaultOpen))
             {
                 bool paused = Physics.Paused;
-                if (ImGui.Checkbox("Pause Simulation", ref paused))
+                if (ImGui.Checkbox("Pause Physics", ref paused))
                     Physics.Paused = paused;
 
                 float gy = Physics.Gravity.Y;
-                if (ImGui.SliderFloat("Gravity Y", ref gy, -25f, 0f))
+                if (ImGui.SliderFloat("Gravity Y", ref gy, -25f, 0f, "%.2f m/s²"))
                     Physics.Gravity = new Vector3(0f, gy, 0f);
 
                 if (ImGui.Button("+ Crate"))
@@ -560,32 +682,20 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                 ImGui.TextDisabled($"Bodies: {Physics.BodyCount}  |  Statics: {Physics.StaticCount}");
             }
 
-            if (ImGui.CollapsingHeader("Control", ImGuiTreeNodeFlags.DefaultOpen))
+            // Camera Controls
+            if (ImGui.CollapsingHeader("Camera"))
             {
                 using var indent = new ImGuiIndent(10f);
                 if (ImGui.RadioButton("No Control", ref _controlMode, 0)) Camera.Control = new NoControl(Camera.Control);
-                if (ImGui.RadioButton("Orbital", ref _controlMode, 1)) Camera.Control = new OrbitalControl(Camera.Control);
-                if (ImGui.RadioButton("FlyBy (WASD+Shift)", ref _controlMode, 2)) Camera.Control = new FlyByControl(Camera.Control) { Speed = _flySpeed };
-                if (ImGui.RadioButton("Editor", ref _controlMode, 3)) Camera.Control = new EditorControl(Camera.Control);
+                if (ImGui.RadioButton("Orbital", ref _controlMode, 1)) Camera.Control = new OrbitalControl(Camera.Control) { RotationSpeed = _mouseSensitivity };
+                if (ImGui.RadioButton("FlyBy (WASD+Shift)", ref _controlMode, 2)) Camera.Control = new FlyByControl(Camera.Control) { Speed = _flySpeed, RotationSpeed = _mouseSensitivity };
+                if (ImGui.RadioButton("Editor", ref _controlMode, 3)) Camera.Control = new EditorControl(Camera.Control) { RotationSpeed = _mouseSensitivity };
 
-                if (Camera.Control is FlyByControl fly)
-                {
-                    if (ImGui.SliderFloat("Fly Speed", ref _flySpeed, 0.5f, 25f))
-                        fly.Speed = _flySpeed;
-                }
-            }
+                if (ImGui.SliderFloat("Mouse Sens", ref _mouseSensitivity, 0.0005f, 0.01f, "%.4f"))
+                    ApplyMouseSensitivity();
 
-            if (ImGui.CollapsingHeader("Rendering"))
-            {
-                using var indent = new ImGuiIndent(10f);
-                bool shadows = SceneRenderer.ShadowsEnabled;
-                if (ImGui.Checkbox("Shadows (PCF)", ref shadows)) SceneRenderer.ShadowsEnabled = shadows;
-
-                bool showSky = SceneRenderer.ShowSky;
-                if (ImGui.Checkbox("Show Sky", ref showSky)) SceneRenderer.ShowSky = showSky;
-
-                bool showGround = SceneRenderer.ShowGroundPlane;
-                if (ImGui.Checkbox("Show Ground Plane", ref showGround)) SceneRenderer.ShowGroundPlane = showGround;
+                if (Camera.Control is FlyByControl fly && ImGui.SliderFloat("Fly Speed", ref _flySpeed, 0.5f, 25f, "%.1f"))
+                    fly.Speed = _flySpeed;
 
                 if (ImGui.RadioButton("Perspective", ref _projectionMode, 0)) Camera.Projection = new PerspectiveProjection { Aspect = Camera.Aspect };
                 if (ImGui.RadioButton("Orthographic", ref _projectionMode, 1)) Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect };

@@ -127,8 +127,8 @@ public class OrbitalControl : Camera.IControl
 
     public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse)
     {
-        Vector2 delta = mouse.Delta * dt;
-        if(delta == Vector2.Zero) return;
+        Vector2 delta = mouse.Delta;
+        if (delta == Vector2.Zero) return;
         if (mouse.IsButtonDown(MouseButton.Button1))
         {
             Rotate(delta);
@@ -142,13 +142,13 @@ public class OrbitalControl : Camera.IControl
     public void Rotate(Vector2 delta)
     {
         var sign = Up.Y < 0 ? -1 : 1;
-        Yaw += sign * delta.X * RotationSpeed;
-        Pitch -= delta.Y * RotationSpeed;
+        Yaw -= sign * delta.X * RotationSpeed;
+        Pitch = Math.Clamp(Pitch - delta.Y * RotationSpeed, -1.55f, 1.55f);
     }
 
     public void Zoom(Vector2 delta)
     {
-        Distance = MathF.Max(1.0f, Distance * MathF.Pow(1 + ZoomSpeed, delta.Y));
+        Distance = MathF.Max(0.5f, Distance * MathF.Pow(1 + ZoomSpeed, delta.Y));
     }
 
     public Vector3 Position => FocalPoint - Distance * Forward;
@@ -158,8 +158,8 @@ public class OrbitalControl : Camera.IControl
     public Vector3 Up => Orientation * Vector3.UnitY;
     public Matrix4 ViewMatrix { get; set; }
 
-    public float ZoomSpeed { get; set; } = 1;
-    public float RotationSpeed { get; set; } = 1;
+    public float ZoomSpeed { get; set; } = 0.006f;
+    public float RotationSpeed { get; set; } = 0.004f;
 
     private Quaternion Orientation => 
         Quaternion.FromAxisAngle(Vector3.UnitY, Yaw) * 
@@ -230,7 +230,7 @@ public class FlyByControl : Camera.IControl
 
         Position += move;
 
-        Vector2 delta = mouse.Delta * dt;
+        Vector2 delta = mouse.Delta;
         if (delta == Vector2.Zero) return;
         if (mouse.IsButtonDown(MouseButton.Button1) || mouse.IsButtonDown(MouseButton.Button2))
         {
@@ -240,9 +240,8 @@ public class FlyByControl : Camera.IControl
 
     public void Rotate(Vector2 delta)
     {
-        var sign = Up.Y < 0 ? -1 : 1;
-        Yaw -= sign * delta.X * RotationSpeed;
-        Pitch -= delta.Y * RotationSpeed;
+        Yaw -= delta.X * RotationSpeed;
+        Pitch = Math.Clamp(Pitch - delta.Y * RotationSpeed, -1.55f, 1.55f);
     }
 
     public Vector3 Position { get; set; }
@@ -251,8 +250,8 @@ public class FlyByControl : Camera.IControl
     public Vector3 Up => Orientation * Vector3.UnitY;
     public Matrix4 ViewMatrix { get; set; }
 
-    public float RotationSpeed { get; set; } = 1;
-    public float Speed { get; set; } = 1;
+    public float RotationSpeed { get; set; } = 0.003f;
+    public float Speed { get; set; } = 5.0f;
 
     private Quaternion Orientation => 
         Quaternion.FromAxisAngle(Vector3.UnitY, Yaw) * 
@@ -296,8 +295,8 @@ public class EditorControl : Camera.IControl
 
     public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse)
     {
-        Vector2 delta = mouse.Delta * dt;
-        if(delta == Vector2.Zero) return;
+        Vector2 delta = mouse.Delta;
+        if (delta == Vector2.Zero) return;
         if (mouse.IsButtonDown(MouseButton.Button1))
         {
             Rotate(delta);
@@ -315,8 +314,8 @@ public class EditorControl : Camera.IControl
     public void Rotate(Vector2 delta)
     {
         var sign = Up.Y < 0 ? -1 : 1;
-        Yaw += sign * delta.X * RotationSpeed;
-        Pitch -= delta.Y * RotationSpeed;
+        Yaw -= sign * delta.X * RotationSpeed;
+        Pitch = Math.Clamp(Pitch - delta.Y * RotationSpeed, -1.55f, 1.55f);
     }
 
     public void Pan(Vector2 delta)
@@ -341,9 +340,9 @@ public class EditorControl : Camera.IControl
     public Vector3 Up => Orientation * Vector3.UnitY;
     public Matrix4 ViewMatrix { get; set; }
 
-    public float ZoomSpeed { get; set; } = 1;
-    public float RotationSpeed { get; set; } = 1;
-    public float PanSpeed { get; set; } = 1;
+    public float ZoomSpeed { get; set; } = 0.006f;
+    public float RotationSpeed { get; set; } = 0.004f;
+    public float PanSpeed { get; set; } = 0.0015f;
 
     private Quaternion Orientation => 
         Quaternion.FromAxisAngle(Vector3.UnitY, Yaw) * 
