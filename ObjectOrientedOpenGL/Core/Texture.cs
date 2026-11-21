@@ -29,11 +29,16 @@ public class Texture : IDisposable, IBindable
 
     public static Texture FromMemory(ReadOnlySpan<byte> encodedImageBytes, Options? options = null, bool generateMipmaps = true)
     {
-        var tex = new Texture();
         using var ms = new MemoryStream(encodedImageBytes.ToArray());
         ImageResult image = ImageResult.FromStream(ms, ColorComponents.RedGreenBlueAlpha);
-        tex.Allocate(image.Width, image.Height, SizedInternalFormat.Rgba8);
-        tex.Update(image.Data, 0, 0, image.Width, image.Height, PixelFormat.Rgba, PixelType.UnsignedByte);
+        return FromRgba(image.Data, image.Width, image.Height, options, generateMipmaps);
+    }
+
+    public static Texture FromRgba(ReadOnlySpan<byte> rgbaPixels, int width, int height, Options? options = null, bool generateMipmaps = true)
+    {
+        var tex = new Texture();
+        tex.Allocate(width, height, SizedInternalFormat.Rgba8);
+        tex.Update(rgbaPixels, 0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte);
         tex.ApplyOptions(options ?? Options.Default);
         if (generateMipmaps) tex.GenerateMipmaps();
         return tex;

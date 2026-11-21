@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using ImSharp;
 using ObjectOrientedOpenGL.Core;
 using ObjectOrientedOpenGL.Graphics;
+using ObjectOrientedOpenGL.Physics;
 using OpenTK.Mathematics;
 
 namespace ObjectOrientedOpenGL.Scene;
@@ -12,6 +13,7 @@ namespace ObjectOrientedOpenGL.Scene;
 public sealed class SceneEditorPanel
 {
     public Entity? SelectedEntity { get; set; }
+    public PhysicsWorld? Physics { get; set; }
     public ImGuizmoOperation GizmoOperation { get; set; } = ImGuizmoOperation.TRANSLATE;
     public ImGuizmoMode GizmoMode { get; set; } = ImGuizmoMode.LOCAL;
     public bool ShowGizmo { get; set; } = true;
@@ -149,18 +151,28 @@ public sealed class SceneEditorPanel
         if (ImGui.CollapsingHeader("Transform", ImGuiTreeNodeFlags.DefaultOpen))
         {
             var tr = entity.Get<TransformComponent>();
+            bool changed = false;
             Span<float> pos = stackalloc float[] { tr.Position.X, tr.Position.Y, tr.Position.Z };
             if (ImGui.DragFloat3("Position", pos, 0.05f))
+            {
                 tr.Position = new Vector3(pos[0], pos[1], pos[2]);
+                changed = true;
+            }
 
             var euler = tr.EulerAnglesDegrees;
             Span<float> rot = stackalloc float[] { euler.X, euler.Y, euler.Z };
             if (ImGui.DragFloat3("Rotation", rot, 0.5f))
+            {
                 tr.EulerAnglesDegrees = new Vector3(rot[0], rot[1], rot[2]);
+                changed = true;
+            }
 
             Span<float> scl = stackalloc float[] { tr.Scale.X, tr.Scale.Y, tr.Scale.Z };
             if (ImGui.DragFloat3("Scale", scl, 0.02f))
                 tr.Scale = new Vector3(scl[0], scl[1], scl[2]);
+
+            if (changed)
+                Physics?.SyncEntityToPhysics(entity);
         }
 
         // MeshRenderer & PBR Material
@@ -219,6 +231,32 @@ public sealed class SceneEditorPanel
                 rotator.Speed = spd;
         }
 
+        // RigidBody & Collider (BepuPhysics2)
+        if (entity.TryGet<RigidBodyComponent>(out var rb) && rb != null &&
+            ImGui.CollapsingHeader("RigidBody (BepuPhysics2)", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.Text($"Motion: {rb.MotionType}  |  Awake: {rb.IsAwake}");
+            if (rb.MotionType == BodyMotionType.Dynamic)
+            {
+                ImGui.Text($"Mass: {rb.Mass:F2} kg");
+                ImGui.Text($"Velocity: ({rb.LinearVelocity.X:F2}, {rb.LinearVelocity.Y:F2}, {rb.LinearVelocity.Z:F2})");
+                if (ImGui.Button("Impulse +Y"))
+                    rb.ApplyImpulse(new Vector3(0f, rb.Mass * 6f, 0f));
+            }
+        }
+
+        if (entity.TryGet<ColliderComponent>(out var colComp) && colComp != null &&
+            ImGui.CollapsingHeader("Collider"))
+        {
+            ImGui.Text($"Shape: {colComp.Shape}");
+            if (colComp.Shape == ColliderShape.Box)
+                ImGui.Text($"Box Size: ({colComp.BoxSize.X:F2}, {colComp.BoxSize.Y:F2}, {colComp.BoxSize.Z:F2})");
+            else if (colComp.Shape == ColliderShape.Sphere)
+                ImGui.Text($"Radius: {colComp.Radius:F2}");
+            else
+                ImGui.Text($"Radius: {colComp.Radius:F2}, Length: {colComp.Length:F2}");
+        }
+
         ImGui.End();
     }
 
@@ -253,6 +291,7 @@ public sealed class SceneEditorPanel
             {
                 tr.SetFromLocalMatrix(newWorld);
             }
+            Physics?.SyncEntityToPhysics(entity);
         }
     }
 

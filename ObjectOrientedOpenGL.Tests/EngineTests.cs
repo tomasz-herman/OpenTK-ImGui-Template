@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using ObjectOrientedOpenGL.Canvas2D;
 using ObjectOrientedOpenGL.Graphics;
+using ObjectOrientedOpenGL.Physics;
 using ObjectOrientedOpenGL.Scene;
 using OpenTK.Mathematics;
 using SharpGLTF.Schema2;
@@ -166,13 +167,53 @@ public class EngineTests
     }
 
     [Fact]
+    public void BepuPhysics2_DynamicBody_Falls_And_Lands_On_StaticFloor()
+    {
+        var world = new World();
+        using var physics = new PhysicsWorld(new Vector3(0f, -9.81f, 0f), threadCount: 1);
+        world.AddSystem(physics);
+
+        var floor = world.CreateEntity("Floor")
+            .Add(RigidBodyComponent.Static())
+            .Add(ColliderComponent.Box(50f, 1f, 50f));
+        floor.Get<TransformComponent>().Position = new Vector3(0f, -0.5f, 0f);
+
+        var ball = world.CreateEntity("Ball")
+            .Add(RigidBodyComponent.Dynamic(mass: 1.0f))
+            .Add(ColliderComponent.Sphere(0.5f));
+        ball.Get<TransformComponent>().Position = new Vector3(0f, 4.0f, 0f);
+
+        // Simulate 2 seconds at 60 Hz
+        for (int i = 0; i < 120; i++)
+            world.Update(1f / 60f);
+
+        Assert.Equal(1, physics.BodyCount);
+        Assert.Equal(1, physics.StaticCount);
+
+        float y = ball.Get<TransformComponent>().Position.Y;
+        // Sphere of radius 0.5 resting on floor at y=0 should settle near y=0.5
+        Assert.InRange(y, 0.4f, 0.75f);
+
+        // Raycast downward should hit the ball first
+        bool hit = physics.Raycast(world, new Vector3(0f, 10f, 0f), -Vector3.UnitY, 20f, out var rayHit);
+        Assert.True(hit);
+        Assert.Equal(ball, rayHit.Entity);
+        Assert.True(rayHit.Distance > 8f && rayHit.Distance < 10f);
+
+        // Destroying entity removes its Bepu body on next update
+        ball.Destroy();
+        world.Update(1f / 60f);
+        Assert.Equal(0, physics.BodyCount);
+    }
+
+    [Fact]
     public void GltfModelLoader_Parses_Sponza_When_Asset_Present()
     {
         string? dir = AppContext.BaseDirectory;
         string? sponzaPath = null;
         for (int i = 0; i < 6 && !string.IsNullOrEmpty(dir); i++)
         {
-            string candidate = Path.Combine(dir, "Template3D", "Assets", "Sponza", "Sponza.gltf");
+            string candidate = Path.Combine(dir, "Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf");
             if (File.Exists(candidate))
             {
                 sponzaPath = candidate;

@@ -3,6 +3,7 @@ using ImSharp;
 using ObjectOrientedOpenGL.Core;
 using ObjectOrientedOpenGL.Extra;
 using ObjectOrientedOpenGL.Graphics;
+using ObjectOrientedOpenGL.Physics;
 using ObjectOrientedOpenGL.Scene;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -21,12 +22,16 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 {
     private Camera Camera { get; set; } = null!;
     private World World { get; set; } = null!;
+    private PhysicsWorld Physics { get; set; } = null!;
     private SceneRenderer SceneRenderer { get; set; } = null!;
     private SceneEditorPanel EditorPanel { get; set; } = null!;
     private FpsCounter FpsCounter { get; set; } = null!;
     private Billboard OriginLabel { get; set; } = null!;
     private Model? LoadedModel { get; set; }
 
+    private Mesh _physicsCubeMesh = null!;
+    private Mesh _physicsSphereMesh = null!;
+    private int _spawnCounter;
     private readonly List<Mesh> _proceduralMeshes = [];
     private readonly string? _initialModelPath = initialModelPath;
     private readonly byte[] _gltfPathBuf = new byte[512];
@@ -61,10 +66,14 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             new PerspectiveProjection { Aspect = (float)ClientSize.X / Math.Max(ClientSize.Y, 1), Near = 0.1f, Far = 300.0f });
 
         World = new World();
+        Physics = new PhysicsWorld();
+        World.AddSystem(Physics);
         SceneRenderer = new SceneRenderer(withSky: true, withGroundPlane: true);
-        EditorPanel = new SceneEditorPanel();
+        EditorPanel = new SceneEditorPanel { Physics = Physics };
         FpsCounter = new FpsCounter();
         OriginLabel = new Billboard(Vector3.Zero, () => ImGui.TextColored(new ImVec4(1, 1, 1, 0.85f), "Origin"));
+        _physicsCubeMesh = PrimitiveMeshes.CreateCube(1.0f, "PhysicsCrate");
+        _physicsSphereMesh = PrimitiveMeshes.CreateSphere(0.45f, 20, 28, "PhysicsSphere");
 
         string? modelPath = _initialModelPath ?? FindDefaultSponzaPath();
         if (modelPath != null && File.Exists(modelPath))
@@ -87,10 +96,10 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         string[] relativeCandidates =
         [
+            Path.Combine("Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
+            Path.Combine("Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
             Path.Combine("Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
-            Path.Combine("Assets", "Sponza", "Sponza.gltf"),
             Path.Combine("Template3D", "Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
-            Path.Combine("Template3D", "Assets", "Sponza", "Sponza.gltf"),
         ];
 
         string[] roots =
@@ -120,12 +129,46 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private void ClearScene()
     {
         EditorPanel.SelectedEntity = null;
+        Physics.Reset();
         World.Clear();
         LoadedModel?.Dispose();
         LoadedModel = null;
         foreach (var mesh in _proceduralMeshes)
             mesh.Dispose();
         _proceduralMeshes.Clear();
+        _spawnCounter = 0;
+    }
+
+    private void AddStaticFloorCollider(float floorY)
+    {
+        var floor = World.CreateEntity("Physics Floor")
+            .Add(RigidBodyComponent.Static())
+            .Add(ColliderComponent.Box(200f, 1f, 200f));
+        floor.Get<TransformComponent>().Position = new Vector3(0f, floorY - 0.5f, 0f);
+    }
+
+    private void SpawnPhysicsCrate(Vector3 position)
+    {
+        int id = ++_spawnCounter;
+        var crate = World.CreateEntity($"Crate #{id}")
+            .Add(new MeshRendererComponent(_physicsCubeMesh, PbrMaterial.CreateColored($"CrateMat{id}", new Vector3(0.76f, 0.48f, 0.26f), metallic: 0.1f, roughness: 0.55f)))
+            .Add(RigidBodyComponent.Dynamic(mass: 2.0f))
+            .Add(ColliderComponent.Box(Vector3.One));
+        crate.Get<TransformComponent>().Position = position;
+    }
+
+    private void SpawnPhysicsSphere(Vector3 position, Vector3 initialVelocity = default)
+    {
+        int id = ++_spawnCounter;
+        var rb = RigidBodyComponent.Dynamic(mass: 1.5f);
+        if (initialVelocity.LengthSquared > 1e-4f)
+            rb.SetLinearVelocity(initialVelocity);
+
+        var sphere = World.CreateEntity($"Sphere #{id}")
+            .Add(new MeshRendererComponent(_physicsSphereMesh, PbrMaterial.CreateColored($"SphereMat{id}", new Vector3(0.25f, 0.72f, 0.92f), metallic: 0.85f, roughness: 0.2f)))
+            .Add(rb)
+            .Add(ColliderComponent.Sphere(0.45f));
+        sphere.Get<TransformComponent>().Position = position;
     }
 
     private void LoadGltfScene(string path)
@@ -149,6 +192,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             var center = bounds.Center;
             var size = bounds.Size;
             float diag = MathF.Max(size.Length, 1.0f);
+
+            AddStaticFloorCollider(bounds.Min.Y);
 
             // High directional sun angling into the courtyard
             var sun = World.CreateEntity("Sun Light")
@@ -263,6 +308,12 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         var gltfRoot = World.SpawnModel(LoadedModel, "glTF Pyramid");
         gltfRoot.Get<TransformComponent>().Position = new Vector3(3.0f, 0.0f, -1.5f);
 
+        // 4. BepuPhysics2 floor + dynamic crate stack
+        AddStaticFloorCollider(0f);
+        SpawnPhysicsCrate(new Vector3(-3.0f, 1.0f, 0.0f));
+        SpawnPhysicsCrate(new Vector3(-3.0f, 2.2f, 0.05f));
+        SpawnPhysicsSphere(new Vector3(-3.0f, 3.8f, -0.05f));
+
         _controlMode = 3;
         Camera.Control = new EditorControl(new Vector3(4.5f, 3.2f, 5.5f), new Vector3(0f, 1.0f, 0f));
         EditorPanel.SelectedEntity = centerTorus;
@@ -335,6 +386,9 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     protected override void OnUnload()
     {
         ClearScene();
+        _physicsCubeMesh.Dispose();
+        _physicsSphereMesh.Dispose();
+        Physics.Dispose();
         SceneRenderer.Dispose();
         ResourcesManager.Instance.Dispose();
         base.OnUnload();
@@ -430,6 +484,28 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                     var sz = m.Bounds.Size;
                     ImGui.TextDisabled($"Bounds: {sz.X:F1} x {sz.Y:F1} x {sz.Z:F1} m");
                 }
+            }
+
+            if (ImGui.CollapsingHeader("Physics (BepuPhysics2)", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                bool paused = Physics.Paused;
+                if (ImGui.Checkbox("Pause Simulation", ref paused))
+                    Physics.Paused = paused;
+
+                float gy = Physics.Gravity.Y;
+                if (ImGui.SliderFloat("Gravity Y", ref gy, -25f, 0f))
+                    Physics.Gravity = new Vector3(0f, gy, 0f);
+
+                if (ImGui.Button("+ Crate"))
+                    SpawnPhysicsCrate(Camera.Position + Camera.Front * 3.5f + new Vector3(0f, 1.5f, 0f));
+                ImGui.SameLine();
+                if (ImGui.Button("+ Sphere"))
+                    SpawnPhysicsSphere(Camera.Position + Camera.Front * 3.5f + new Vector3(0f, 1.5f, 0f));
+                ImGui.SameLine();
+                if (ImGui.Button("Shoot"))
+                    SpawnPhysicsSphere(Camera.Position + Camera.Front * 1.4f, Camera.Front * 14f);
+
+                ImGui.TextDisabled($"Bodies: {Physics.BodyCount}  |  Statics: {Physics.StaticCount}");
             }
 
             if (ImGui.CollapsingHeader("Control", ImGuiTreeNodeFlags.DefaultOpen))

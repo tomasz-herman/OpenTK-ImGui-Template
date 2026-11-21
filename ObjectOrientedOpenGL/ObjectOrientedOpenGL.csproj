@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="BepuPhysics" Version="2.4.0" />
         <PackageReference Include="ImSharp" Version="1.93.0" />
         <PackageReference Include="OpenTK" Version="4.9.4" />
         <PackageReference Include="SharpGLTF.Core" Version="1.0.7" />

@@ -4,6 +4,7 @@ using ObjectOrientedOpenGL.Extra;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using SharpGLTF.Schema2;
+using StbImageSharp;
 using AlphaMode = ObjectOrientedOpenGL.Graphics.AlphaMode;
 using Mesh = ObjectOrientedOpenGL.Core.Mesh;
 using PrimitiveType = OpenTK.Graphics.OpenGL4.PrimitiveType;
@@ -84,13 +85,26 @@ public static class GltfModelLoader
     {
         var parsed = ParseCpu(gltf);
 
-        // 1. Upload textures
-        var textures = new List<Texture>(parsed.Images.Count);
-        foreach (var imgBytes in parsed.Images)
+        // 1. Decode images in parallel on CPU, then upload textures on the OpenGL thread
+        var decoded = new ImageResult?[parsed.Images.Count];
+        Parallel.For(0, parsed.Images.Count, i =>
         {
-            textures.Add(imgBytes.Length > 0
-                ? Texture.FromMemory(imgBytes)
+            var imgBytes = parsed.Images[i];
+            if (imgBytes.Length > 0)
+            {
+                using var ms = new MemoryStream(imgBytes, writable: false);
+                decoded[i] = ImageResult.FromStream(ms, ColorComponents.RedGreenBlueAlpha);
+            }
+        });
+
+        var textures = new List<Texture>(parsed.Images.Count);
+        for (int i = 0; i < decoded.Length; i++)
+        {
+            var img = decoded[i];
+            textures.Add(img is not null
+                ? Texture.FromRgba(img.Data, img.Width, img.Height)
                 : Texture.CreateSolidColor(255, 255, 255, 255));
+            decoded[i] = null;
         }
 
         // 2. Build PBR materials
