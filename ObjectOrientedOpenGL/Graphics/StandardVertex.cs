@@ -4,15 +4,23 @@ using OpenTK.Mathematics;
 namespace ObjectOrientedOpenGL.Graphics;
 
 /// <summary>
-/// Canonical vertex format shared by procedural primitives and glTF/GLB meshes.
+/// Canonical vertex format shared by procedural primitives and glTF/GLB meshes (supports skeletal skinning).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-public struct StandardVertex(Vector3 position, Vector3 normal, Vector4 tangent, Vector2 texCoord)
+public struct StandardVertex(
+    Vector3 position,
+    Vector3 normal,
+    Vector4 tangent,
+    Vector2 texCoord,
+    Vector4 joints = default,
+    Vector4 weights = default)
 {
     public Vector3 Position = position;
     public Vector3 Normal = normal;
     public Vector4 Tangent = tangent;
     public Vector2 TexCoord = texCoord;
+    public Vector4 Joints = joints;
+    public Vector4 Weights = weights;
 
     public static Core.VertexBuffer.Attribute[] Attributes =>
     [
@@ -20,6 +28,8 @@ public struct StandardVertex(Vector3 position, Vector3 normal, Vector4 tangent, 
         new(1, 3), // Normal
         new(2, 4), // Tangent (xyz + handedness w)
         new(3, 2), // TexCoord
+        new(4, 4), // Joints (bone indices as floats)
+        new(5, 4), // Weights (bone weights)
     ];
 }
 

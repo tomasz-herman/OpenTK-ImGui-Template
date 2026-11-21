@@ -20,14 +20,24 @@ public sealed class MeshPrimitive(string name, Mesh mesh, PbrMaterial material, 
 public sealed class ModelNode
 {
     public string Name { get; }
+    public int NodeIndex { get; }
+    public int SkinIndex { get; }
     public Matrix4 LocalTransform { get; set; }
     public ModelNode? Parent { get; private set; }
     public IReadOnlyList<MeshPrimitive> Primitives { get; }
     public IReadOnlyList<ModelNode> Children { get; }
 
-    public ModelNode(string name, Matrix4 localTransform, List<MeshPrimitive> primitives, List<ModelNode> children)
+    public ModelNode(
+        string name,
+        Matrix4 localTransform,
+        List<MeshPrimitive> primitives,
+        List<ModelNode> children,
+        int nodeIndex = -1,
+        int skinIndex = -1)
     {
         Name = name;
+        NodeIndex = nodeIndex;
+        SkinIndex = skinIndex;
         LocalTransform = localTransform;
         Primitives = primitives;
         Children = children;
@@ -51,6 +61,8 @@ public sealed class Model : IDisposable
     public IReadOnlyList<MeshPrimitive> Primitives { get; }
     public IReadOnlyList<PbrMaterial> Materials { get; }
     public IReadOnlyList<Texture> Textures { get; }
+    public IReadOnlyList<AnimationClip> Animations { get; }
+    public IReadOnlyList<SkinData> Skins { get; }
     public BoundingBox Bounds { get; }
 
     public Model(
@@ -58,13 +70,17 @@ public sealed class Model : IDisposable
         ModelNode root,
         List<MeshPrimitive> primitives,
         List<PbrMaterial> materials,
-        List<Texture> textures)
+        List<Texture> textures,
+        List<AnimationClip>? animations = null,
+        List<SkinData>? skins = null)
     {
         Path = path;
         Root = root;
         Primitives = primitives;
         Materials = materials;
         Textures = textures;
+        Animations = animations ?? [];
+        Skins = skins ?? [];
         Bounds = ComputeBounds(root, Matrix4.Identity);
     }
 

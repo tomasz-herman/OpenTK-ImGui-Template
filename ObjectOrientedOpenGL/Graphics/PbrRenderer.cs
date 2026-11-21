@@ -25,7 +25,7 @@ public sealed class PbrRenderer : IDisposable
             ("ObjectOrientedOpenGL.Resources.Shaders.pbr.frag", ShaderType.FragmentShader));
     }
 
-    public void BeginFrame(Camera camera, ReadOnlySpan<PointLightData> pointLights = default)
+    public void BeginFrame(Camera camera, ReadOnlySpan<PointLightData> pointLights = default, ShadowMap? shadowMap = null)
     {
         Shader.Use();
         Shader.LoadMatrix4("uViewProj", camera.ProjectionViewMatrix);
@@ -35,6 +35,19 @@ public sealed class PbrRenderer : IDisposable
         Shader.LoadFloat("uSunIntensity", SunIntensity);
         Shader.LoadFloat3("uAmbientSky", AmbientSky);
         Shader.LoadFloat3("uAmbientGround", AmbientGround);
+
+        if (shadowMap is not null)
+        {
+            shadowMap.BindDepthTexture(5);
+            Shader.LoadInteger("uShadowMap", 5);
+            Shader.LoadMatrix4("uLightSpaceMatrix", shadowMap.LightSpaceMatrix);
+            Shader.LoadInteger("uShadowsEnabled", 1);
+        }
+        else
+        {
+            Shader.LoadMatrix4("uLightSpaceMatrix", Matrix4.Identity);
+            Shader.LoadInteger("uShadowsEnabled", 0);
+        }
 
         int count = Math.Min(pointLights.Length, 4);
         Shader.LoadInteger("uPointLightCount", count);
@@ -47,12 +60,24 @@ public sealed class PbrRenderer : IDisposable
         }
     }
 
-    public void DrawMesh(Mesh mesh, Material material, Matrix4 worldTransform)
+    public void DrawMesh(Mesh mesh, Material material, Matrix4 worldTransform, ReadOnlySpan<Matrix4> bonePalette = default)
     {
         Shader.LoadMatrix4("uModel", worldTransform);
         var normalMat = new Matrix3(worldTransform).Inverted();
         normalMat.Transpose();
         Shader.LoadMatrix3("uNormalMatrix", normalMat);
+
+        if (bonePalette.Length > 0)
+        {
+            Shader.LoadInteger("uHasSkinning", 1);
+            int count = Math.Min(bonePalette.Length, 128);
+            for (int i = 0; i < count; i++)
+                Shader.LoadMatrix4($"uJointMatrices[{i}]", bonePalette[i]);
+        }
+        else
+        {
+            Shader.LoadInteger("uHasSkinning", 0);
+        }
 
         material.Bind(Shader);
         mesh.Bind();

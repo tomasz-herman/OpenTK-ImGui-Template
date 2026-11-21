@@ -207,6 +207,31 @@ public class EngineTests
     }
 
     [Fact]
+    public void AnimationSystem_Evaluates_Keyframes_And_Updates_Transform()
+    {
+        var world = new World();
+        var node = world.CreateEntity("AnimatedNode");
+
+        var channel = new ObjectOrientedOpenGL.Graphics.AnimationChannel(
+            targetNodeIndex: 0,
+            AnimationPath.Translation,
+            AnimationInterpolation.Linear,
+            times: [0f, 1f],
+            vec3Values: [new Vector3(0, 0, 0), new Vector3(10, 0, 0)]);
+
+        var clip = new AnimationClip("Slide", 1.0f, [channel]);
+        var animator = new AnimatorComponent([clip], [], new Dictionary<int, Entity> { [0] = node });
+        node.Add(animator);
+
+        world.Update(0.5f);
+        Assert.Equal(5.0f, node.Get<TransformComponent>().Position.X, 2);
+
+        world.Update(0.5f);
+        // Loops back to 0.0 at t=1.0
+        Assert.Equal(0.0f, node.Get<TransformComponent>().Position.X, 2);
+    }
+
+    [Fact]
     public void GltfModelLoader_Parses_Sponza_When_Asset_Present()
     {
         string? dir = AppContext.BaseDirectory;

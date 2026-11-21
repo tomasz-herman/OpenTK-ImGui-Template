@@ -23,6 +23,7 @@ public sealed class World
 
     public World()
     {
+        _systems.Add(new AnimationSystem());
         _systems.Add(new RotatorSystem());
         _systems.Add(TransformSystem);
     }
@@ -200,26 +201,38 @@ public sealed class World
     }
 
     /// <summary>
-    /// Spawns a loaded glTF <see cref="Model"/> hierarchy into the ECS Scene Graph.
+    /// Spawns a loaded glTF <see cref="Model"/> hierarchy into the ECS Scene Graph,
+    /// automatically wiring <see cref="AnimatorComponent"/> and skeletal skin bindings if present.
     /// </summary>
     public Entity SpawnModel(Model model, string? rootName = null, Entity? parent = null)
     {
+        var nodeEntities = new Dictionary<int, Entity>();
+        var skinnedRenderers = new List<(MeshRendererComponent Renderer, int SkinIndex)>();
+
         Entity SpawnNode(ModelNode node, Entity? parentEntity, string? overrideName = null)
         {
             var e = CreateEntity(overrideName ?? node.Name, parentEntity);
             e.Get<TransformComponent>().SetFromLocalMatrix(node.LocalTransform);
+            if (node.NodeIndex >= 0)
+                nodeEntities[node.NodeIndex] = e;
 
             if (node.Primitives.Count == 1)
             {
                 var p = node.Primitives[0];
-                e.Add(new MeshRendererComponent(p.Mesh, p.Material));
+                var mr = new MeshRendererComponent(p.Mesh, p.Material);
+                e.Add(mr);
+                if (node.SkinIndex >= 0)
+                    skinnedRenderers.Add((mr, node.SkinIndex));
             }
             else if (node.Primitives.Count > 1)
             {
                 foreach (var p in node.Primitives)
                 {
                     var sub = CreateEntity(p.Name, e);
-                    sub.Add(new MeshRendererComponent(p.Mesh, p.Material));
+                    var mr = new MeshRendererComponent(p.Mesh, p.Material);
+                    sub.Add(mr);
+                    if (node.SkinIndex >= 0)
+                        skinnedRenderers.Add((mr, node.SkinIndex));
                 }
             }
 
@@ -229,7 +242,20 @@ public sealed class World
             return e;
         }
 
-        return SpawnNode(model.Root, parent, rootName ?? Path.GetFileNameWithoutExtension(model.Path));
+        var rootEntity = SpawnNode(model.Root, parent, rootName ?? Path.GetFileNameWithoutExtension(model.Path));
+
+        if (model.Animations.Count > 0 || model.Skins.Count > 0)
+        {
+            var animator = new AnimatorComponent(model.Animations, model.Skins, nodeEntities);
+            rootEntity.Add(animator);
+            foreach (var (mr, skinIdx) in skinnedRenderers)
+            {
+                mr.Animator = animator;
+                mr.SkinIndex = skinIdx;
+            }
+        }
+
+        return rootEntity;
     }
 }
 
@@ -253,6 +279,60 @@ public sealed class TransformSystem : ISystem
         {
             foreach (uint childId in hierarchy.Children)
                 UpdateRecursive(world, childId, transform.WorldMatrix);
+        }
+    }
+}
+
+/// <summary>
+/// Evaluates active glTF <see cref="AnimationClip"/> channels on entities carrying <see cref="AnimatorComponent"/>.
+/// </summary>
+public sealed class AnimationSystem : ISystem
+{
+    public void Update(World world, float deltaTime)
+    {
+        foreach (var (entity, animator) in world.Query<AnimatorComponent>())
+        {
+            if (entity.TryGet<NameComponent>(out var name) && name is { Active: false })
+                continue;
+
+            var clip = animator.ActiveClip;
+            if (clip is null || clip.Duration <= 0f)
+                continue;
+
+            if (animator.Playing && deltaTime > 0f)
+            {
+                animator.CurrentTime += deltaTime * animator.Speed;
+                if (animator.Loop)
+                {
+                    animator.CurrentTime %= clip.Duration;
+                    if (animator.CurrentTime < 0f) animator.CurrentTime += clip.Duration;
+                }
+                else
+                {
+                    animator.CurrentTime = Math.Clamp(animator.CurrentTime, 0f, clip.Duration);
+                }
+            }
+
+            float t = animator.CurrentTime;
+            foreach (var ch in clip.Channels)
+            {
+                if (!animator.NodeEntities.TryGetValue(ch.TargetNodeIndex, out var target) || !target.IsValid)
+                    continue;
+
+                var tr = target.Get<TransformComponent>();
+                switch (ch.Path)
+                {
+                    case AnimationPath.Translation:
+                        tr.Position = ch.SampleVec3(t);
+                        break;
+                    case AnimationPath.Rotation:
+                        tr.Rotation = ch.SampleQuat(t);
+                        break;
+                    case AnimationPath.Scale:
+                        tr.Scale = ch.SampleVec3(t);
+                        break;
+                }
+            }
         }
     }
 }

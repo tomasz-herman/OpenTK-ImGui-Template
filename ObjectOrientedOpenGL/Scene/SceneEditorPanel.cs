@@ -222,6 +222,36 @@ public sealed class SceneEditorPanel
             }
         }
 
+        // Animator (glTF 2.0)
+        if (entity.TryGet<AnimatorComponent>(out var anim) && anim != null &&
+            ImGui.CollapsingHeader("Animator (glTF)", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            bool playing = anim.Playing;
+            if (ImGui.Checkbox("Playing", ref playing)) anim.Playing = playing;
+            ImGui.SameLine();
+            bool loop = anim.Loop;
+            if (ImGui.Checkbox("Loop", ref loop)) anim.Loop = loop;
+
+            float speed = anim.Speed;
+            if (ImGui.SliderFloat("Speed", ref speed, 0f, 3f)) anim.Speed = speed;
+
+            if (anim.ActiveClip is { } clip)
+            {
+                float t = anim.CurrentTime;
+                if (ImGui.SliderFloat("Time", ref t, 0f, MathF.Max(clip.Duration, 0.001f)))
+                    anim.CurrentTime = t;
+            }
+
+            for (int i = 0; i < anim.Clips.Count; i++)
+            {
+                if (ImGui.RadioButton($"{anim.Clips[i].Name} ({anim.Clips[i].Duration:F2}s)##clip{i}", anim.ActiveClipIndex == i))
+                {
+                    anim.ActiveClipIndex = i;
+                    anim.CurrentTime = 0f;
+                }
+            }
+        }
+
         // Rotator
         if (entity.TryGet<RotatorComponent>(out var rotator) && rotator != null &&
             ImGui.CollapsingHeader("Rotator", ImGuiTreeNodeFlags.DefaultOpen))

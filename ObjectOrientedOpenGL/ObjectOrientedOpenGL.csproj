@@ -18,6 +18,8 @@
     <ItemGroup>
         <EmbeddedResource Include="Resources\Shaders\pbr.frag" />
         <EmbeddedResource Include="Resources\Shaders\pbr.vert" />
+        <EmbeddedResource Include="Resources\Shaders\shadow.frag" />
+        <EmbeddedResource Include="Resources\Shaders\shadow.vert" />
         <EmbeddedResource Include="Resources\Shaders\plane.frag" />
         <EmbeddedResource Include="Resources\Shaders\plane.vert" />
         <EmbeddedResource Include="Resources\Shaders\sky.frag" />

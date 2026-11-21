@@ -28,6 +28,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private FpsCounter FpsCounter { get; set; } = null!;
     private Billboard OriginLabel { get; set; } = null!;
     private Model? LoadedModel { get; set; }
+    private readonly List<Model> _addonModels = [];
 
     private Mesh _physicsCubeMesh = null!;
     private Mesh _physicsSphereMesh = null!;
@@ -92,16 +93,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         GL.DepthFunc(DepthFunction.Lequal);
     }
 
-    private static string? FindDefaultSponzaPath()
+    private static string? FindAssetPath(params string[] relativeCandidates)
     {
-        string[] relativeCandidates =
-        [
-            Path.Combine("Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
-            Path.Combine("Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
-            Path.Combine("Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
-            Path.Combine("Template3D", "Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
-        ];
-
         string[] roots =
         [
             Environment.CurrentDirectory,
@@ -126,6 +119,12 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         return null;
     }
 
+    private static string? FindDefaultSponzaPath() => FindAssetPath(
+        Path.Combine("Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
+        Path.Combine("Template3D", "Assets", "IntelSponza", "NewSponza_Main_glTF_003.gltf"),
+        Path.Combine("Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
+        Path.Combine("Template3D", "Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"));
+
     private void ClearScene()
     {
         EditorPanel.SelectedEntity = null;
@@ -133,6 +132,9 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         World.Clear();
         LoadedModel?.Dispose();
         LoadedModel = null;
+        foreach (var addon in _addonModels)
+            addon.Dispose();
+        _addonModels.Clear();
         foreach (var mesh in _proceduralMeshes)
             mesh.Dispose();
         _proceduralMeshes.Clear();
@@ -193,7 +195,55 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             var size = bounds.Size;
             float diag = MathF.Max(size.Length, 1.0f);
 
+            SceneRenderer.ShadowFocus = center;
+            SceneRenderer.ShadowHalfExtent = Math.Clamp(MathF.Max(size.X, size.Z) * 0.6f, 12f, 35f);
+
             AddStaticFloorCollider(bounds.Min.Y);
+
+            // Auto-load Intel Sponza add-ons (Curtains, Ivy, Animated Knight) when loading Sponza
+            int addonCount = 0;
+            if (Path.GetFileName(path).Contains("Sponza", StringComparison.OrdinalIgnoreCase))
+            {
+                string? curtainsPath = FindAssetPath(
+                    Path.Combine("Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"),
+                    Path.Combine("Template3D", "Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"));
+                if (curtainsPath != null)
+                {
+                    var curtains = GltfModelLoader.Load(curtainsPath);
+                    _addonModels.Add(curtains);
+                    World.SpawnModel(curtains, "Sponza Curtains");
+                    addonCount++;
+                }
+
+                string? ivyPath = FindAssetPath(
+                    Path.Combine("Assets", "IntelSponzaIvy", "NewSponza_IvyGrowth_glTF.gltf"),
+                    Path.Combine("Template3D", "Assets", "IntelSponzaIvy", "NewSponza_IvyGrowth_glTF.gltf"));
+                if (ivyPath != null)
+                {
+                    var ivy = GltfModelLoader.Load(ivyPath);
+                    _addonModels.Add(ivy);
+                    World.SpawnModel(ivy, "Sponza Ivy");
+                    addonCount++;
+                }
+
+                string? knightPath = FindAssetPath(
+                    Path.Combine("Assets", "IntelSponzaKnight", "Knight.glb"),
+                    Path.Combine("Template3D", "Assets", "IntelSponzaKnight", "Knight.glb"),
+                    Path.Combine("Assets", "IntelSponzaKnight", "Fox.glb"),
+                    Path.Combine("Template3D", "Assets", "IntelSponzaKnight", "Fox.glb"));
+                if (knightPath != null)
+                {
+                    var knight = GltfModelLoader.Load(knightPath);
+                    _addonModels.Add(knight);
+                    var knightEntity = World.SpawnModel(knight, Path.GetFileNameWithoutExtension(knightPath));
+                    float knightHeight = MathF.Max(knight.Bounds.Size.Y, 0.001f);
+                    float scale = knightHeight > 4.0f || knightHeight < 0.6f ? 1.85f / knightHeight : 1.0f;
+                    var tr = knightEntity.Get<TransformComponent>();
+                    tr.Scale = new Vector3(scale);
+                    tr.Position = new Vector3(center.X, bounds.Min.Y - knight.Bounds.Min.Y * scale, center.Z);
+                    addonCount++;
+                }
+            }
 
             // High directional sun angling into the courtyard
             var sun = World.CreateEntity("Sun Light")
@@ -246,7 +296,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             }
 
             Title = $"OpenTK-ImGui-Template — {Path.GetFileName(path)}";
-            _sceneStatus = $"Loaded {Path.GetFileName(path)}: {model.Primitives.Count} meshes, {model.Materials.Count} materials, {model.Textures.Count} textures";
+            _sceneStatus = $"Loaded {Path.GetFileName(path)} (+{addonCount} addons): {model.Primitives.Count} meshes, {model.Materials.Count} materials, {model.Textures.Count} textures";
             _ = modelRoot;
         }
         catch (Exception ex)
@@ -262,6 +312,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         _showOriginLabel = true;
         SceneRenderer.ShowGroundPlane = true;
         SceneRenderer.ShowSky = true;
+        SceneRenderer.ShadowFocus = new Vector3(0f, 1.0f, 0f);
+        SceneRenderer.ShadowHalfExtent = 10f;
         SceneRenderer.Pbr.AmbientSky = new Vector3(0.28f, 0.36f, 0.48f);
         SceneRenderer.Pbr.AmbientGround = new Vector3(0.10f, 0.09f, 0.08f);
 
@@ -526,6 +578,9 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             if (ImGui.CollapsingHeader("Rendering"))
             {
                 using var indent = new ImGuiIndent(10f);
+                bool shadows = SceneRenderer.ShadowsEnabled;
+                if (ImGui.Checkbox("Shadows (PCF)", ref shadows)) SceneRenderer.ShadowsEnabled = shadows;
+
                 bool showSky = SceneRenderer.ShowSky;
                 if (ImGui.Checkbox("Show Sky", ref showSky)) SceneRenderer.ShowSky = showSky;
 

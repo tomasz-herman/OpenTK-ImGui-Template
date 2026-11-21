@@ -172,11 +172,11 @@ public static class GltfModelLoader
                 ? primitivesByMesh[pn.MeshIndex]
                 : [];
             var children = pn.Children.Select(BuildNode).ToList();
-            return new ModelNode(pn.Name, pn.LocalTransform, prims, children);
+            return new ModelNode(pn.Name, pn.LocalTransform, prims, children, pn.NodeIndex, pn.SkinIndex);
         }
 
         var root = BuildNode(parsed.Root);
-        return new Model(path, root, allPrimitives, materials, textures);
+        return new Model(path, root, allPrimitives, materials, textures, parsed.Animations, parsed.Skins);
     }
 
     private static ParsedGltfData ParseCpu(ModelRoot gltf)
@@ -254,6 +254,8 @@ public static class GltfModelLoader
                 var normals = prim.GetVertexAccessor("NORMAL")?.AsVector3Array();
                 var tangents = prim.GetVertexAccessor("TANGENT")?.AsVector4Array();
                 var texCoords = prim.GetVertexAccessor("TEXCOORD_0")?.AsVector2Array();
+                var joints = prim.GetVertexAccessor("JOINTS_0")?.AsVector4Array();
+                var weights = prim.GetVertexAccessor("WEIGHTS_0")?.AsVector4Array();
 
                 uint[] indices = prim.IndexAccessor != null
                     ? prim.GetIndices().ToArray()
@@ -268,7 +270,12 @@ public static class GltfModelLoader
                     var n = normals != null ? normals[i].ToOpenTk() : Vector3.UnitY;
                     var t = tangents != null ? tangents[i].ToOpenTk() : new Vector4(1, 0, 0, 1);
                     var uv = texCoords != null ? texCoords[i].ToOpenTk() : Vector2.Zero;
-                    vertices[i] = new StandardVertex(p, n, t, uv);
+                    var j = joints != null ? joints[i].ToOpenTk() : Vector4.Zero;
+                    var w = weights != null ? weights[i].ToOpenTk() : Vector4.Zero;
+                    float wSum = w.X + w.Y + w.Z + w.W;
+                    if (wSum > 1e-6f) w /= wSum;
+
+                    vertices[i] = new StandardVertex(p, n, t, uv, j, w);
                     bounds.Expand(p);
                 }
 
@@ -293,18 +300,157 @@ public static class GltfModelLoader
             meshes.Add(primList);
         }
 
+        // Skins
+        var skins = new List<SkinData>(gltf.LogicalSkins.Count);
+        foreach (var skin in gltf.LogicalSkins)
+        {
+            int count = skin.JointsCount;
+            var jointIndices = new int[count];
+            var ibms = new Matrix4[count];
+            for (int i = 0; i < count; i++)
+            {
+                var (jointNode, ibm) = skin.GetJoint(i);
+                jointIndices[i] = jointNode.LogicalIndex;
+                ibms[i] = ibm.ToOpenTk();
+            }
+            skins.Add(new SkinData(skin.Name ?? $"Skin_{skin.LogicalIndex}", jointIndices, ibms));
+        }
+
+        // Animations
+        var animations = new List<AnimationClip>(gltf.LogicalAnimations.Count);
+        foreach (var anim in gltf.LogicalAnimations)
+        {
+            var channels = new List<AnimationChannel>(anim.Channels.Count);
+            float maxTime = 0f;
+
+            foreach (var ch in anim.Channels)
+            {
+                if (ch.TargetNode is null) continue;
+                int nodeIdx = ch.TargetNode.LogicalIndex;
+
+                switch (ch.TargetNodePath)
+                {
+                    case PropertyPath.translation:
+                    {
+                        var sampler = ch.GetTranslationSampler();
+                        if (sampler is null) continue;
+                        var interp = ConvertInterpolation(sampler.InterpolationMode);
+                        var (times, values) = ExtractVec3Keys(sampler);
+                        if (times.Length == 0) continue;
+                        maxTime = MathF.Max(maxTime, times[^1]);
+                        channels.Add(new AnimationChannel(nodeIdx, AnimationPath.Translation, interp, times, vec3Values: values));
+                        break;
+                    }
+                    case PropertyPath.scale:
+                    {
+                        var sampler = ch.GetScaleSampler();
+                        if (sampler is null) continue;
+                        var interp = ConvertInterpolation(sampler.InterpolationMode);
+                        var (times, values) = ExtractVec3Keys(sampler);
+                        if (times.Length == 0) continue;
+                        maxTime = MathF.Max(maxTime, times[^1]);
+                        channels.Add(new AnimationChannel(nodeIdx, AnimationPath.Scale, interp, times, vec3Values: values));
+                        break;
+                    }
+                    case PropertyPath.rotation:
+                    {
+                        var sampler = ch.GetRotationSampler();
+                        if (sampler is null) continue;
+                        var interp = ConvertInterpolation(sampler.InterpolationMode);
+                        var (times, values) = ExtractQuatKeys(sampler);
+                        if (times.Length == 0) continue;
+                        maxTime = MathF.Max(maxTime, times[^1]);
+                        channels.Add(new AnimationChannel(nodeIdx, AnimationPath.Rotation, interp, times, quatValues: values));
+                        break;
+                    }
+                }
+            }
+
+            if (channels.Count > 0)
+                animations.Add(new AnimationClip(anim.Name ?? $"Anim_{anim.LogicalIndex}", maxTime, channels));
+        }
+
         // Scene graph root
         var scene = gltf.DefaultScene ?? gltf.LogicalScenes.FirstOrDefault();
         ParsedNode ConvertNode(Node n) => new(
             n.Name ?? $"Node_{n.LogicalIndex}",
+            n.LogicalIndex,
             n.LocalMatrix.ToOpenTk(),
             n.Mesh?.LogicalIndex ?? -1,
+            n.Skin?.LogicalIndex ?? -1,
             n.VisualChildren.Select(ConvertNode).ToList());
 
         var rootChildren = scene?.VisualChildren.Select(ConvertNode).ToList() ?? [];
-        var root = new ParsedNode(scene?.Name ?? "Root", Matrix4.Identity, -1, rootChildren);
+        var root = new ParsedNode(scene?.Name ?? "Root", -1, Matrix4.Identity, -1, -1, rootChildren);
 
-        return new ParsedGltfData(root, meshes, materials, images);
+        return new ParsedGltfData(root, meshes, materials, images, animations, skins);
+    }
+
+    private static AnimationInterpolation ConvertInterpolation(SharpGLTF.Schema2.AnimationInterpolationMode mode) => mode switch
+    {
+        SharpGLTF.Schema2.AnimationInterpolationMode.STEP => AnimationInterpolation.Step,
+        SharpGLTF.Schema2.AnimationInterpolationMode.CUBICSPLINE => AnimationInterpolation.CubicSpline,
+        _ => AnimationInterpolation.Linear
+    };
+
+    private static (float[] Times, Vector3[] Values) ExtractVec3Keys(IAnimationSampler<System.Numerics.Vector3> sampler)
+    {
+        if (sampler.InterpolationMode == SharpGLTF.Schema2.AnimationInterpolationMode.CUBICSPLINE)
+        {
+            var keys = sampler.GetCubicKeys().ToList();
+            var times = new float[keys.Count];
+            var vals = new Vector3[keys.Count * 3];
+            for (int i = 0; i < keys.Count; i++)
+            {
+                times[i] = keys[i].Key;
+                vals[i * 3 + 0] = keys[i].Value.TangentIn.ToOpenTk();
+                vals[i * 3 + 1] = keys[i].Value.Value.ToOpenTk();
+                vals[i * 3 + 2] = keys[i].Value.TangentOut.ToOpenTk();
+            }
+            return (times, vals);
+        }
+        else
+        {
+            var keys = sampler.GetLinearKeys().ToList();
+            var times = new float[keys.Count];
+            var vals = new Vector3[keys.Count];
+            for (int i = 0; i < keys.Count; i++)
+            {
+                times[i] = keys[i].Key;
+                vals[i] = keys[i].Value.ToOpenTk();
+            }
+            return (times, vals);
+        }
+    }
+
+    private static (float[] Times, Quaternion[] Values) ExtractQuatKeys(IAnimationSampler<System.Numerics.Quaternion> sampler)
+    {
+        if (sampler.InterpolationMode == SharpGLTF.Schema2.AnimationInterpolationMode.CUBICSPLINE)
+        {
+            var keys = sampler.GetCubicKeys().ToList();
+            var times = new float[keys.Count];
+            var vals = new Quaternion[keys.Count * 3];
+            for (int i = 0; i < keys.Count; i++)
+            {
+                times[i] = keys[i].Key;
+                vals[i * 3 + 0] = keys[i].Value.TangentIn.ToOpenTk();
+                vals[i * 3 + 1] = keys[i].Value.Value.ToOpenTk();
+                vals[i * 3 + 2] = keys[i].Value.TangentOut.ToOpenTk();
+            }
+            return (times, vals);
+        }
+        else
+        {
+            var keys = sampler.GetLinearKeys().ToList();
+            var times = new float[keys.Count];
+            var vals = new Quaternion[keys.Count];
+            for (int i = 0; i < keys.Count; i++)
+            {
+                times[i] = keys[i].Key;
+                vals[i] = keys[i].Value.ToOpenTk();
+            }
+            return (times, vals);
+        }
     }
 
     private static void ComputeSmoothNormals(StandardVertex[] vertices, uint[] indices)
@@ -364,9 +510,11 @@ public static class GltfModelLoader
         ParsedNode Root,
         List<List<ParsedPrimitive>> Meshes,
         List<ParsedMaterial> Materials,
-        List<byte[]> Images);
+        List<byte[]> Images,
+        List<AnimationClip> Animations,
+        List<SkinData> Skins);
 
-    public sealed record ParsedNode(string Name, Matrix4 LocalTransform, int MeshIndex, List<ParsedNode> Children);
+    public sealed record ParsedNode(string Name, int NodeIndex, Matrix4 LocalTransform, int MeshIndex, int SkinIndex, List<ParsedNode> Children);
 
     public sealed record ParsedPrimitive(string Name, StandardVertex[] Vertices, uint[] Indices, int MaterialIndex, BoundingBox Bounds);
 

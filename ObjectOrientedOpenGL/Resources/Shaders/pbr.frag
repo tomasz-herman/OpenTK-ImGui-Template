@@ -4,6 +4,7 @@ in vec3 vWorldPos;
 in vec3 vNormal;
 in vec4 vTangent;
 in vec2 vTexCoord;
+in vec4 vLightSpacePos;
 
 out vec4 FragColor;
 
@@ -21,6 +22,8 @@ uniform sampler2D uMetallicRoughnessMap;
 uniform sampler2D uNormalMap;
 uniform sampler2D uOcclusionMap;
 uniform sampler2D uEmissiveMap;
+uniform sampler2D uShadowMap;
+uniform int uShadowsEnabled;
 
 // Camera & Lighting
 uniform vec3 uCameraPos;
@@ -80,6 +83,31 @@ vec3 EvaluateLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float met
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
+float ComputeSunShadow(vec4 lightSpacePos, vec3 N, vec3 L)
+{
+    if (uShadowsEnabled == 0)
+        return 0.0;
+
+    vec3 projCoords = lightSpacePos.xyz / max(lightSpacePos.w, 1e-6);
+    projCoords = projCoords * 0.5 + 0.5;
+    if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0)
+        return 0.0;
+
+    float bias = max(0.0025 * (1.0 - max(dot(N, L), 0.0)), 0.0004);
+    vec2 texelSize = 1.0 / vec2(textureSize(uShadowMap, 0));
+
+    float shadow = 0.0;
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(uShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += (projCoords.z - bias > pcfDepth) ? 1.0 : 0.0;
+        }
+    }
+    return shadow / 9.0;
+}
+
 vec3 ACESFilm(vec3 x)
 {
     float a = 2.51;
@@ -119,11 +147,12 @@ void main()
 
     vec3 Lo = vec3(0.0);
 
-    // Directional sun light
+    // Directional sun light (with 3x3 PCF shadow map)
     if (uSunIntensity > 0.0)
     {
         vec3 L = normalize(uSunDir);
-        Lo += EvaluateLight(N, V, L, uSunColor * uSunIntensity, baseColor.rgb, metallic, roughness, F0);
+        float shadow = ComputeSunShadow(vLightSpacePos, N, L);
+        Lo += (1.0 - shadow) * EvaluateLight(N, V, L, uSunColor * uSunIntensity, baseColor.rgb, metallic, roughness, F0);
     }
 
     // Point lights
