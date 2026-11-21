@@ -164,4 +164,30 @@ public class EngineTests
         Assert.Single(parsed.Root.Children[0].Children);
         Assert.Equal("ChildMesh", parsed.Root.Children[0].Children[0].Name);
     }
+
+    [Fact]
+    public void GltfModelLoader_Parses_Sponza_When_Asset_Present()
+    {
+        string? dir = AppContext.BaseDirectory;
+        string? sponzaPath = null;
+        for (int i = 0; i < 6 && !string.IsNullOrEmpty(dir); i++)
+        {
+            string candidate = Path.Combine(dir, "Template3D", "Assets", "Sponza", "Sponza.gltf");
+            if (File.Exists(candidate))
+            {
+                sponzaPath = candidate;
+                break;
+            }
+            dir = Directory.GetParent(dir)?.FullName;
+        }
+
+        if (sponzaPath is null)
+            return;
+
+        var parsed = GltfModelLoader.ParseCpu(sponzaPath);
+        Assert.NotEmpty(parsed.Meshes);
+        Assert.NotEmpty(parsed.Materials);
+        Assert.NotEmpty(parsed.Images);
+        Assert.All(parsed.Images, bytes => Assert.NotEmpty(bytes));
+    }
 }

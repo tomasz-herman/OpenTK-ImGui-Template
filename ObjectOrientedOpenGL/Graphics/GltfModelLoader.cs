@@ -60,6 +60,17 @@ public static class GltfModelLoader
     }
 
     /// <summary>
+    /// Parses glTF/GLB geometry, materials, and node hierarchy from disk into CPU data without creating OpenGL resources.
+    /// Useful for headless validation and unit tests.
+    /// </summary>
+    public static ParsedGltfData ParseCpu(string path)
+    {
+        ValidateExtension(path);
+        var gltf = ModelRoot.Load(path);
+        return ParseCpu(gltf);
+    }
+
+    /// <summary>
     /// Parses glTF/GLB geometry, materials, and node hierarchy into CPU data without creating OpenGL resources.
     /// Useful for headless validation and unit tests.
     /// </summary>

@@ -500,3 +500,4 @@ modules.xml
 # End of https://www.toptal.com/developers/gitignore/api/rider,csharp,intellij+all
 
 imgui.ini
+Template3D/Assets/

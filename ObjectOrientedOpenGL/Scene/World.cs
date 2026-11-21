@@ -71,6 +71,14 @@ public sealed class World
             store.Remove(id);
     }
 
+    public void Clear()
+    {
+        _alive.Clear();
+        _entityOrder.Clear();
+        _stores.Clear();
+        _nextId = 1;
+    }
+
     public void SetParent(uint childId, uint? newParentId)
     {
         if (!_alive.Contains(childId)) return;

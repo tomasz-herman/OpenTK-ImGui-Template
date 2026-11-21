@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Runtime.InteropServices;
 using ImSharp;
 using ObjectOrientedOpenGL.Core;
@@ -14,11 +13,10 @@ using SharpGLTF.Schema2;
 using Camera = ObjectOrientedOpenGL.Core.Camera;
 using Mesh = ObjectOrientedOpenGL.Core.Mesh;
 using Vector3 = OpenTK.Mathematics.Vector3;
-using Vector4 = OpenTK.Mathematics.Vector4;
 
 namespace Template3D;
 
-public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings, string? initialModelPath)
     : ImGuiGameWindow(gameWindowSettings, nativeWindowSettings)
 {
     private Camera Camera { get; set; } = null!;
@@ -27,22 +25,30 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private SceneEditorPanel EditorPanel { get; set; } = null!;
     private FpsCounter FpsCounter { get; set; } = null!;
     private Billboard OriginLabel { get; set; } = null!;
-    private Model? SampleGltfModel { get; set; }
+    private Model? LoadedModel { get; set; }
 
     private readonly List<Mesh> _proceduralMeshes = [];
-    private int _controlMode = 3;
+    private readonly string? _initialModelPath = initialModelPath;
+    private readonly byte[] _gltfPathBuf = new byte[512];
+    private string _sceneStatus = string.Empty;
+    private bool _isGltfScene;
+    private int _controlMode = 2;
     private int _projectionMode;
+    private float _flySpeed = 5.0f;
+    private bool _showOriginLabel;
     private bool _showDemoWindow;
 
     public static void Main(string[] args)
     {
+        string? cliModel = args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]) ? args[0] : null;
+
         var gwSettings = GameWindowSettings.Default;
         var nwSettings = NativeWindowSettings.Default;
         nwSettings.NumberOfSamples = 4;
 
-        using var program = new Program(gwSettings, nwSettings);
-        program.Title = "OpenTK-ImGui-Template — 3D Game Engine Lite";
-        program.ClientSize = new Vector2i(1400, 860);
+        using var program = new Program(gwSettings, nwSettings, cliModel);
+        program.Title = "OpenTK-ImGui-Template — 3D Engine (glTF 2.0 / Sponza)";
+        program.ClientSize = new Vector2i(1440, 900);
         program.Run();
     }
 
@@ -51,8 +57,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         base.OnLoad();
 
         Camera = new Camera(
-            new EditorControl(new Vector3(4.5f, 3.2f, 5.5f), new Vector3(0f, 1.0f, 0f)),
-            new PerspectiveProjection { Aspect = (float)ClientSize.X / Math.Max(ClientSize.Y, 1) });
+            new FlyByControl(new Vector3(-7.0f, 2.0f, 0.0f), new Vector3(4.0f, 2.8f, 0.0f)) { Speed = _flySpeed },
+            new PerspectiveProjection { Aspect = (float)ClientSize.X / Math.Max(ClientSize.Y, 1), Near = 0.1f, Far = 300.0f });
 
         World = new World();
         SceneRenderer = new SceneRenderer(withSky: true, withGroundPlane: true);
@@ -60,15 +66,160 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         FpsCounter = new FpsCounter();
         OriginLabel = new Billboard(Vector3.Zero, () => ImGui.TextColored(new ImVec4(1, 1, 1, 0.85f), "Origin"));
 
-        BuildDemoScene();
+        string? modelPath = _initialModelPath ?? FindDefaultSponzaPath();
+        if (modelPath != null && File.Exists(modelPath))
+        {
+            SetPathInput(modelPath);
+            LoadGltfScene(modelPath);
+        }
+        else
+        {
+            SetPathInput(Path.Combine("Template3D", "Assets", "Sponza", "Sponza.gltf"));
+            BuildProceduralDemoScene();
+        }
 
         GL.ClearColor(0.12f, 0.14f, 0.18f, 1.0f);
         GL.Enable(EnableCap.DepthTest);
         GL.DepthFunc(DepthFunction.Lequal);
     }
 
-    private void BuildDemoScene()
+    private static string? FindDefaultSponzaPath()
     {
+        string[] relativeCandidates =
+        [
+            Path.Combine("Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
+            Path.Combine("Assets", "Sponza", "Sponza.gltf"),
+            Path.Combine("Template3D", "Assets", "Sponza", "NewSponza_Main_glTF_003.gltf"),
+            Path.Combine("Template3D", "Assets", "Sponza", "Sponza.gltf"),
+        ];
+
+        string[] roots =
+        [
+            Environment.CurrentDirectory,
+            AppContext.BaseDirectory,
+        ];
+
+        foreach (string root in roots)
+        {
+            string? dir = root;
+            for (int depth = 0; depth < 5 && !string.IsNullOrEmpty(dir); depth++)
+            {
+                foreach (string rel in relativeCandidates)
+                {
+                    string full = Path.GetFullPath(Path.Combine(dir, rel));
+                    if (File.Exists(full))
+                        return full;
+                }
+                dir = Directory.GetParent(dir)?.FullName;
+            }
+        }
+
+        return null;
+    }
+
+    private void ClearScene()
+    {
+        EditorPanel.SelectedEntity = null;
+        World.Clear();
+        LoadedModel?.Dispose();
+        LoadedModel = null;
+        foreach (var mesh in _proceduralMeshes)
+            mesh.Dispose();
+        _proceduralMeshes.Clear();
+    }
+
+    private void LoadGltfScene(string path)
+    {
+        try
+        {
+            var model = GltfModelLoader.Load(path);
+            ClearScene();
+            LoadedModel = model;
+            _isGltfScene = true;
+            _showOriginLabel = false;
+            SceneRenderer.ShowGroundPlane = false;
+            SceneRenderer.ShowSky = true;
+
+            // Courtyard + interior bounce ambient
+            SceneRenderer.Pbr.AmbientSky = new Vector3(0.45f, 0.52f, 0.65f);
+            SceneRenderer.Pbr.AmbientGround = new Vector3(0.22f, 0.19f, 0.16f);
+
+            var modelRoot = World.SpawnModel(model);
+            var bounds = model.Bounds;
+            var center = bounds.Center;
+            var size = bounds.Size;
+            float diag = MathF.Max(size.Length, 1.0f);
+
+            // High directional sun angling into the courtyard
+            var sun = World.CreateEntity("Sun Light")
+                .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.88f), Intensity = 4.2f });
+            sun.Get<TransformComponent>().EulerAnglesDegrees = new Vector3(-62f, 22f, 0f);
+
+            // Warm interior point lights along the main axis
+            float lightY = bounds.Min.Y + MathF.Min(3.2f, size.Y * 0.28f);
+            float lightRange = MathF.Max(14.0f, size.X * 0.55f);
+            float lightIntensity = MathF.Max(18.0f, size.X * 1.1f);
+            float spanX = size.X * 0.28f;
+
+            Vector3[] lightPositions =
+            [
+                new(center.X - spanX, lightY, center.Z),
+                new(center.X, lightY + 0.8f, center.Z),
+                new(center.X + spanX, lightY, center.Z),
+            ];
+
+            for (int i = 0; i < lightPositions.Length; i++)
+            {
+                var pt = World.CreateEntity($"Atrium Light {i + 1}")
+                    .Add(new LightComponent
+                    {
+                        Type = LightType.Point,
+                        Color = new Vector3(1.0f, 0.86f, 0.68f),
+                        Intensity = lightIntensity,
+                        Range = lightRange
+                    });
+                pt.Get<TransformComponent>().Position = lightPositions[i];
+            }
+
+            // Place FlyBy camera inside the atrium looking down the long axis
+            Vector3 camPos = new(
+                center.X - size.X * 0.28f,
+                bounds.Min.Y + MathF.Min(2.0f, size.Y * 0.18f),
+                center.Z);
+            Vector3 camTarget = new(
+                center.X + size.X * 0.20f,
+                bounds.Min.Y + MathF.Min(2.8f, size.Y * 0.26f),
+                center.Z);
+
+            _flySpeed = Math.Clamp(diag * 0.14f, 1.5f, 15.0f);
+            _controlMode = 2;
+            Camera.Control = new FlyByControl(camPos, camTarget) { Speed = _flySpeed };
+            if (Camera.Projection is PerspectiveProjection persp)
+            {
+                persp.Near = MathF.Max(0.05f, diag * 0.002f);
+                persp.Far = MathF.Max(300.0f, diag * 10.0f);
+            }
+
+            Title = $"OpenTK-ImGui-Template — {Path.GetFileName(path)}";
+            _sceneStatus = $"Loaded {Path.GetFileName(path)}: {model.Primitives.Count} meshes, {model.Materials.Count} materials, {model.Textures.Count} textures";
+            _ = modelRoot;
+        }
+        catch (Exception ex)
+        {
+            _sceneStatus = $"Load failed: {ex.Message}";
+        }
+    }
+
+    private void BuildProceduralDemoScene()
+    {
+        ClearScene();
+        _isGltfScene = false;
+        _showOriginLabel = true;
+        SceneRenderer.ShowGroundPlane = true;
+        SceneRenderer.ShowSky = true;
+        SceneRenderer.Pbr.AmbientSky = new Vector3(0.28f, 0.36f, 0.48f);
+        SceneRenderer.Pbr.AmbientGround = new Vector3(0.10f, 0.09f, 0.08f);
+
         // 1. Directional Sun Light
         var sun = World.CreateEntity("Sun Light")
             .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.90f), Intensity = 3.2f });
@@ -108,11 +259,29 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
         // 3. Demonstrate SharpGLTF (.glb) loading & spawning into the ECS Scene Graph
         using var glbStream = CreateSampleGlbStream();
-        SampleGltfModel = GltfModelLoader.LoadGlb(glbStream, "SharpGltfPyramid.glb");
-        var gltfRoot = World.SpawnModel(SampleGltfModel, "glTF Pyramid");
+        LoadedModel = GltfModelLoader.LoadGlb(glbStream, "SharpGltfPyramid.glb");
+        var gltfRoot = World.SpawnModel(LoadedModel, "glTF Pyramid");
         gltfRoot.Get<TransformComponent>().Position = new Vector3(3.0f, 0.0f, -1.5f);
 
+        _controlMode = 3;
+        Camera.Control = new EditorControl(new Vector3(4.5f, 3.2f, 5.5f), new Vector3(0f, 1.0f, 0f));
         EditorPanel.SelectedEntity = centerTorus;
+        Title = "OpenTK-ImGui-Template — 3D Game Engine Lite";
+        _sceneStatus = "Procedural PBR Demo";
+    }
+
+    private void SetPathInput(string path)
+    {
+        Array.Clear(_gltfPathBuf);
+        int written = System.Text.Encoding.UTF8.GetBytes(path.AsSpan(), _gltfPathBuf.AsSpan(0, _gltfPathBuf.Length - 1));
+        _gltfPathBuf[written] = 0;
+    }
+
+    private string GetPathInput()
+    {
+        int len = Array.IndexOf(_gltfPathBuf, (byte)0);
+        if (len < 0) len = _gltfPathBuf.Length;
+        return System.Text.Encoding.UTF8.GetString(_gltfPathBuf, 0, len).Trim();
     }
 
     private Mesh Track(Mesh mesh)
@@ -121,10 +290,6 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         return mesh;
     }
 
-    /// <summary>
-    /// Creates an in-memory glTF 2.0 binary (.glb) asset using SharpGLTF to demonstrate
-    /// GltfModelLoader without requiring external asset downloads.
-    /// </summary>
     private static MemoryStream CreateSampleGlbStream()
     {
         var model = ModelRoot.CreateModel();
@@ -169,9 +334,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
     protected override void OnUnload()
     {
-        SampleGltfModel?.Dispose();
-        foreach (var mesh in _proceduralMeshes)
-            mesh.Dispose();
+        ClearScene();
         SceneRenderer.Dispose();
         ResourcesManager.Instance.Dispose();
         base.OnUnload();
@@ -199,7 +362,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             Close();
 
         var io = ImGui.GetIO();
-        if (io.WantCaptureMouse || EditorPanel.IsGizmoUsing || EditorPanel.IsGizmoOver)
+        if (io.WantCaptureMouse || io.WantCaptureKeyboard || EditorPanel.IsGizmoUsing || EditorPanel.IsGizmoOver)
             return;
 
         Camera.HandleInput(dt, keyboard, MouseState.GetSnapshot());
@@ -221,7 +384,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         EditorPanel.Draw(World, Camera);
         DrawCameraPanel();
         FpsCounter.Render();
-        OriginLabel.Render(Camera);
+        if (_showOriginLabel)
+            OriginLabel.Render(Camera);
 
         if (_showDemoWindow)
             ImGui.ShowDemoWindow(ref _showDemoWindow);
@@ -229,23 +393,69 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
     private void DrawCameraPanel()
     {
-        ImGui.SetNextWindowPos(new ImVec2(ClientSize.X - 270, 48), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new ImVec2(254, 230), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowPos(new ImVec2(ClientSize.X - 310, 48), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new ImVec2(294, 370), ImGuiCond.FirstUseEver);
 
         if (ImGui.Begin("Camera & Scene"))
         {
+            if (ImGui.CollapsingHeader("Scene", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                if (ImGui.Button("Sponza"))
+                {
+                    string? sponza = FindDefaultSponzaPath();
+                    if (sponza != null)
+                    {
+                        SetPathInput(sponza);
+                        LoadGltfScene(sponza);
+                    }
+                    else
+                    {
+                        _sceneStatus = "Sponza.gltf not found in Template3D/Assets/Sponza/";
+                    }
+                }
+                ImGui.SameLine();
+                if (ImGui.Button("Procedural Demo"))
+                    BuildProceduralDemoScene();
+
+                ImGui.InputText("##gltfPath", _gltfPathBuf, (nuint)_gltfPathBuf.Length);
+                ImGui.SameLine();
+                if (ImGui.Button("Load"))
+                    LoadGltfScene(GetPathInput());
+
+                if (!string.IsNullOrEmpty(_sceneStatus))
+                    ImGui.TextWrapped(_sceneStatus);
+
+                if (_isGltfScene && LoadedModel is { } m)
+                {
+                    var sz = m.Bounds.Size;
+                    ImGui.TextDisabled($"Bounds: {sz.X:F1} x {sz.Y:F1} x {sz.Z:F1} m");
+                }
+            }
+
             if (ImGui.CollapsingHeader("Control", ImGuiTreeNodeFlags.DefaultOpen))
             {
                 using var indent = new ImGuiIndent(10f);
                 if (ImGui.RadioButton("No Control", ref _controlMode, 0)) Camera.Control = new NoControl(Camera.Control);
                 if (ImGui.RadioButton("Orbital", ref _controlMode, 1)) Camera.Control = new OrbitalControl(Camera.Control);
-                if (ImGui.RadioButton("FlyBy", ref _controlMode, 2)) Camera.Control = new FlyByControl(Camera.Control);
+                if (ImGui.RadioButton("FlyBy (WASD+Shift)", ref _controlMode, 2)) Camera.Control = new FlyByControl(Camera.Control) { Speed = _flySpeed };
                 if (ImGui.RadioButton("Editor", ref _controlMode, 3)) Camera.Control = new EditorControl(Camera.Control);
+
+                if (Camera.Control is FlyByControl fly)
+                {
+                    if (ImGui.SliderFloat("Fly Speed", ref _flySpeed, 0.5f, 25f))
+                        fly.Speed = _flySpeed;
+                }
             }
 
-            if (ImGui.CollapsingHeader("Projection"))
+            if (ImGui.CollapsingHeader("Rendering"))
             {
                 using var indent = new ImGuiIndent(10f);
+                bool showSky = SceneRenderer.ShowSky;
+                if (ImGui.Checkbox("Show Sky", ref showSky)) SceneRenderer.ShowSky = showSky;
+
+                bool showGround = SceneRenderer.ShowGroundPlane;
+                if (ImGui.Checkbox("Show Ground Plane", ref showGround)) SceneRenderer.ShowGroundPlane = showGround;
+
                 if (ImGui.RadioButton("Perspective", ref _projectionMode, 0)) Camera.Projection = new PerspectiveProjection { Aspect = Camera.Aspect };
                 if (ImGui.RadioButton("Orthographic", ref _projectionMode, 1)) Camera.Projection = new OrthographicProjection { Aspect = Camera.Aspect };
             }

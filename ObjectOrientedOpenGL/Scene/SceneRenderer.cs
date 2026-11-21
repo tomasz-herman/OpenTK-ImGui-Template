@@ -13,6 +13,8 @@ public sealed class SceneRenderer : IDisposable
     public PbrRenderer Pbr { get; } = new();
     public Sky? Sky { get; set; }
     public Plane? GroundPlane { get; set; }
+    public bool ShowSky { get; set; } = true;
+    public bool ShowGroundPlane { get; set; } = true;
 
     public SceneRenderer(bool withSky = true, bool withGroundPlane = true)
     {
@@ -57,8 +59,8 @@ public sealed class SceneRenderer : IDisposable
             }
         }
 
-        Sky?.Render(camera);
-        GroundPlane?.Render(camera);
+        if (ShowSky) Sky?.Render(camera);
+        if (ShowGroundPlane) GroundPlane?.Render(camera);
 
         Pbr.BeginFrame(camera, pointLights[..pointLightCount]);
 

@@ -201,37 +201,38 @@ public class FlyByControl : Camera.IControl
 
     public void HandleInput(Camera camera, float dt, KeyboardState keyboard, MouseState mouse)
     {
+        float speed = keyboard.IsKeyDown(Keys.LeftShift) ? Speed * 3f : Speed;
         Vector3 move = Vector3.Zero;
         if (keyboard.IsKeyDown(Keys.W))
         {
-            move += Forward * dt * Speed;
+            move += Forward * dt * speed;
         }
         if (keyboard.IsKeyDown(Keys.S))
         {
-            move -= Forward * dt * Speed;
+            move -= Forward * dt * speed;
         }
         if (keyboard.IsKeyDown(Keys.A))
         {
-            move -= Right * dt * Speed;
+            move -= Right * dt * speed;
         }
         if (keyboard.IsKeyDown(Keys.D))
         {
-            move += Right * dt * Speed;
+            move += Right * dt * speed;
         }
         if (keyboard.IsKeyDown(Keys.Q))
         {
-            move -= Up * dt * Speed;
+            move -= Up * dt * speed;
         }
         if (keyboard.IsKeyDown(Keys.E))
         {
-            move += Up * dt * Speed;
+            move += Up * dt * speed;
         }
 
         Position += move;
-        
+
         Vector2 delta = mouse.Delta * dt;
-        if(delta == Vector2.Zero) return;
-        if (mouse.IsButtonDown(MouseButton.Button1))
+        if (delta == Vector2.Zero) return;
+        if (mouse.IsButtonDown(MouseButton.Button1) || mouse.IsButtonDown(MouseButton.Button2))
         {
             Rotate(delta);
         }
@@ -369,7 +370,7 @@ public class PerspectiveProjection : Camera.IProjection
     public float FovY { get; set; } = MathF.PI / 4;
     public float Aspect { get; set; }
     public float Near { get; set; } = 0.1f;
-    public float Far { get; set; } = 100.0f;
+    public float Far { get; set; } = 300.0f;
     public Matrix4 ProjectionMatrix { get; private set; }
     public float Sensitivity { get; set; } = 0.002f;
 }

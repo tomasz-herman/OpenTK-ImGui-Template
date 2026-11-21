@@ -79,7 +79,8 @@ public sealed class SceneEditorPanel
         var hierarchy = entity.Get<HierarchyComponent>();
         bool isSelected = SelectedEntity == entity;
 
-        var flags = ImGuiTreeNodeFlags.OpenOnArrow | ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.DefaultOpen;
+        var flags = ImGuiTreeNodeFlags.OpenOnArrow | ImGuiTreeNodeFlags.SpanAvailWidth;
+        if (hierarchy.Children.Count <= 8) flags |= ImGuiTreeNodeFlags.DefaultOpen;
         if (isSelected) flags |= ImGuiTreeNodeFlags.Selected;
         if (hierarchy.Children.Count == 0) flags |= ImGuiTreeNodeFlags.Leaf;
 
