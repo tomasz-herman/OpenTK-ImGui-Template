@@ -30,6 +30,7 @@ public class ImGuiGameWindow(GameWindowSettings gameWindowSettings, NativeWindow
 
         var io = ImGui.GetIO();
         io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
+        io.ConfigWindowsMoveFromTitleBarOnly = true;
         if (EnableDocking)
             io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
         if (EnableViewports)
