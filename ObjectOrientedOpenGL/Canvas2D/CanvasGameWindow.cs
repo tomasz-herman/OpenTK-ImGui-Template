@@ -78,7 +78,7 @@ public abstract class CanvasGameWindow(
         ImGui.SetNextWindowSize(new ImVec2(920, 740), ImGuiCond.FirstUseEver);
 
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(6, 6));
-        if (ImGui.Begin("2D Canvas"))
+        if (ImGui.Begin("2D Canvas", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoMove))
         {
             ImVec2 avail = ImGui.GetContentRegionAvail();
             float scale = MathF.Min(avail.x / Canvas.Width, avail.y / Canvas.Height);

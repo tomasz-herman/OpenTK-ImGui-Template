@@ -4,7 +4,7 @@ using OpenTK.Mathematics;
 namespace ObjectOrientedOpenGL.Canvas2D;
 
 [StructLayout(LayoutKind.Explicit)]
-public struct Pixel
+public struct Pixel : IEquatable<Pixel>
 {
     [FieldOffset(0)] public uint Rgba;
 
@@ -29,6 +29,12 @@ public struct Pixel
         (byte)Math.Clamp(c.A * 255f, 0f, 255f));
 
     public readonly Color4 ToColor4() => new(R / 255f, G / 255f, B / 255f, A / 255f);
+
+    public readonly bool Equals(Pixel other) => Rgba == other.Rgba;
+    public override readonly bool Equals(object? obj) => obj is Pixel p && Rgba == p.Rgba;
+    public override readonly int GetHashCode() => (int)Rgba;
+    public static bool operator ==(Pixel a, Pixel b) => a.Rgba == b.Rgba;
+    public static bool operator !=(Pixel a, Pixel b) => a.Rgba != b.Rgba;
 }
 
 /// <summary>
@@ -39,6 +45,7 @@ public interface IPixelCanvas
     int Width { get; }
     int Height { get; }
 
+    bool InBounds(int x, int y);
     Color4 GetPixel(int x, int y);
     void SetPixel(int x, int y, Color4 color);
 

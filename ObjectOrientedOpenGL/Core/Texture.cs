@@ -229,7 +229,10 @@ public class Texture : IDisposable, IBindable
 
         public void Apply(int texture)
         {
-            GL.TextureParameterI(texture, Name, Value);
+            if (Value.Length == 1)
+                GL.TextureParameter(texture, Name, Value[0]);
+            else
+                GL.TextureParameter(texture, Name, Value);
         }
     }
 
