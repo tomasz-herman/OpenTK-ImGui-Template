@@ -12,4 +12,6 @@
         <ProjectReference Include="..\ObjectOrientedOpenGL\ObjectOrientedOpenGL.csproj" />
     </ItemGroup>
 
+    <Import Project="DownloadIntelSponza.targets" />
+
 </Project>

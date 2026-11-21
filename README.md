@@ -12,7 +12,7 @@ Game Engine Lite & 2D/3D graphics template in C# (.NET 10), powered by **OpenTK 
 ## Run & Test
 
 ```bash
-dotnet build OpenTK-ImGui-Template.sln
+dotnet build OpenTK-ImGui-Template.sln # auto-downloads Intel Sponza glTF on first build (-p:DownloadIntelSponza=false to skip)
 dotnet test OpenTK-ImGui-Template.sln
 dotnet run --project Template3D
 dotnet run --project Template2D

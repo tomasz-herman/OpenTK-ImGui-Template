@@ -1,0 +1,235 @@
+<Project>
+  <PropertyGroup>
+    <DownloadIntelSponza Condition="'$(DownloadIntelSponza)' == '' and '$(CI)' != 'true'">true</DownloadIntelSponza>
+    <DownloadIntelSponza Condition="'$(DownloadIntelSponza)' == ''">false</DownloadIntelSponza>
+    <IntelSponzaUrl Condition="'$(IntelSponzaUrl)' == ''">https://cdrdv2.intel.com/v1/dl/getContent/830833</IntelSponzaUrl>
+    <IntelSponzaDir Condition="'$(IntelSponzaDir)' == ''">$(MSBuildProjectDirectory)/Assets/IntelSponza</IntelSponzaDir>
+    <IntelSponzaMarker>$(IntelSponzaDir)/.complete</IntelSponzaMarker>
+  </PropertyGroup>
+
+  <UsingTask
+    TaskName="FetchIntelSponzaTask"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Url ParameterType="System.String" Required="true" />
+      <OutputDir ParameterType="System.String" Required="true" />
+      <MarkerFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Class" Language="cs">
+        <![CDATA[
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+
+public sealed class FetchIntelSponzaTask : Task
+{
+    [Required] public string Url { get; set; } = "";
+    [Required] public string OutputDir { get; set; } = "";
+    [Required] public string MarkerFile { get; set; } = "";
+
+    public override bool Execute()
+    {
+        try
+        {
+            Directory.CreateDirectory(OutputDir);
+            Log.LogMessage(MessageImportance.High, $"[IntelSponza] Fetching glTF assets from {Url}...");
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("OpenTK-ImGui-Template/1.0");
+
+            using var headReq = new HttpRequestMessage(HttpMethod.Head, Url);
+            using var headResp = http.SendAsync(headReq).GetAwaiter().GetResult();
+            headResp.EnsureSuccessStatusCode();
+
+            var resolvedUrl = headResp.RequestMessage?.RequestUri ?? new Uri(Url);
+            long totalZipSize = headResp.Content.Headers.ContentLength
+                ?? throw new InvalidOperationException("Remote server did not return Content-Length.");
+
+            using var remoteStream = new BufferedStream(new HttpRangeStream(http, Url, resolvedUrl, totalZipSize), 4 * 1024 * 1024);
+            using var zip = new ZipArchive(remoteStream, ZipArchiveMode.Read, leaveOpen: false);
+
+            var gltfEntry = zip.Entries.FirstOrDefault(e => e.FullName.EndsWith(".gltf", StringComparison.OrdinalIgnoreCase) && e.FullName.Contains("003"))
+                ?? zip.Entries.FirstOrDefault(e => e.FullName.EndsWith(".gltf", StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("No .gltf file found inside Intel Sponza archive.");
+
+            string baseDir = gltfEntry.FullName.Contains('/')
+                ? gltfEntry.FullName.Substring(0, gltfEntry.FullName.LastIndexOf('/'))
+                : "";
+
+            var needed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { gltfEntry.FullName };
+
+            using (var gltfStream = gltfEntry.Open())
+            using (var reader = new StreamReader(gltfStream))
+            {
+                string gltfText = reader.ReadToEnd();
+                foreach (Match match in Regex.Matches(gltfText, "\"uri\"\\s*:\\s*\"([^\"]+)\""))
+                    AddUri(needed, baseDir, match.Groups[1].Value);
+            }
+
+            foreach (var entry in zip.Entries)
+            {
+                if (entry.FullName.EndsWith("credits_license.txt", StringComparison.OrdinalIgnoreCase))
+                    needed.Add(entry.FullName);
+            }
+
+            var toExtract = zip.Entries.Where(e => needed.Contains(e.FullName)).ToList();
+            long totalBytes = toExtract.Sum(e => e.Length);
+            Log.LogMessage(MessageImportance.High, $"[IntelSponza] Extracting {toExtract.Count} glTF files ({totalBytes / (1024.0 * 1024.0):F1} MB) to {OutputDir}...");
+
+            int done = 0;
+            foreach (var entry in toExtract)
+            {
+                done++;
+                string rel = string.IsNullOrEmpty(baseDir)
+                    ? entry.FullName
+                    : entry.FullName.StartsWith(baseDir + "/", StringComparison.OrdinalIgnoreCase)
+                        ? entry.FullName.Substring(baseDir.Length + 1)
+                        : Path.GetFileName(entry.FullName);
+
+                string dest = Path.Combine(OutputDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                string destDir = Path.GetDirectoryName(dest);
+                if (!string.IsNullOrEmpty(destDir))
+                    Directory.CreateDirectory(destDir);
+
+                if (File.Exists(dest) && new FileInfo(dest).Length == entry.Length)
+                    continue;
+
+                using var src = entry.Open();
+                using var dst = File.Create(dest);
+                src.CopyTo(dst, 1024 * 1024);
+
+                if (done % 15 == 0 || done == toExtract.Count)
+                    Log.LogMessage(MessageImportance.High, $"[IntelSponza] [{done}/{toExtract.Count}] {rel}");
+            }
+
+            File.WriteAllText(MarkerFile, DateTime.UtcNow.ToString("O"));
+            Log.LogMessage(MessageImportance.High, "[IntelSponza] Download complete.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning($"[IntelSponza] Failed to download Intel Sponza: {ex.Message}");
+            return true; // Non-fatal so offline builds still succeed with Procedural Demo
+        }
+    }
+
+    private static void AddUri(HashSet<string> needed, string baseDir, string uri)
+    {
+        if (string.IsNullOrWhiteSpace(uri) || uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return;
+
+        string combined = string.IsNullOrEmpty(baseDir) ? uri : $"{baseDir}/{uri}";
+        // Normalize simple ./ or // segments
+        var parts = new Stack<string>();
+        foreach (string seg in combined.Replace('\\', '/').Split('/'))
+        {
+            if (string.IsNullOrEmpty(seg) || seg == ".") continue;
+            if (seg == ".." && parts.Count > 0) parts.Pop();
+            else parts.Push(seg);
+        }
+        needed.Add(string.Join("/", parts.Reverse()));
+    }
+
+    private sealed class HttpRangeStream : Stream
+    {
+        private readonly HttpClient _http;
+        private readonly string _sourceUrl;
+        private Uri _uri;
+        private readonly long _length;
+        private long _position;
+
+        public HttpRangeStream(HttpClient http, string sourceUrl, Uri uri, long length)
+        {
+            _http = http;
+            _sourceUrl = sourceUrl;
+            _uri = uri;
+            _length = length;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override long Length => _length;
+        public override long Position
+        {
+            get => _position;
+            set => _position = Math.Min(Math.Max(value, 0), _length);
+        }
+
+        private void RefreshSignedUrl()
+        {
+            using var headReq = new HttpRequestMessage(HttpMethod.Head, _sourceUrl);
+            using var headResp = _http.SendAsync(headReq).GetAwaiter().GetResult();
+            headResp.EnsureSuccessStatusCode();
+            _uri = headResp.RequestMessage?.RequestUri ?? new Uri(_sourceUrl);
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position >= _length || count <= 0) return 0;
+            long end = Math.Min(_position + count - 1, _length - 1);
+
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, _uri);
+                req.Headers.Range = new RangeHeaderValue(_position, end);
+                using var resp = _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).GetAwaiter().GetResult();
+                if (resp.StatusCode == System.Net.HttpStatusCode.Forbidden && attempt < 2)
+                {
+                    RefreshSignedUrl();
+                    continue;
+                }
+                resp.EnsureSuccessStatusCode();
+                using var stream = resp.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
+                int totalRead = 0;
+                while (totalRead < count)
+                {
+                    int n = stream.Read(buffer, offset + totalRead, count - totalRead);
+                    if (n == 0) break;
+                    totalRead += n;
+                }
+                _position += totalRead;
+                return totalRead;
+            }
+            throw new IOException("Failed to read range after refreshing signed URL.");
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            _position = origin switch
+            {
+                SeekOrigin.Begin => offset,
+                SeekOrigin.Current => _position + offset,
+                SeekOrigin.End => _length + offset,
+                _ => throw new ArgumentOutOfRangeException(nameof(origin))
+            };
+            return _position;
+        }
+
+        public override void Flush() { }
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+}
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="DownloadIntelSponzaAssets"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(DownloadIntelSponza)' == 'true' and !Exists('$(IntelSponzaMarker)')">
+    <FetchIntelSponzaTask
+      Url="$(IntelSponzaUrl)"
+      OutputDir="$(IntelSponzaDir)"
+      MarkerFile="$(IntelSponzaMarker)" />
+  </Target>
+</Project>
