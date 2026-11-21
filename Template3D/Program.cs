@@ -417,20 +417,20 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         Vector3 nightColor = new(0.28f, 0.38f, 0.62f);
 
         Vector3 sunColor = Vector3.Lerp(noonColor, sunsetColor, horizonGlow);
-        float effectiveIntensity = elev > -0.05f
-            ? _sunIntensityScale * Math.Clamp((elev + 0.05f) * 2.2f, 0f, 1f)
-            : 0.35f; // subtle moonlight
+        float effectiveIntensity = elev > 0.0f
+            ? _sunIntensityScale * Math.Clamp(elev * 3.0f, 0f, 1f)
+            : 0.0f;
 
-        if (elev <= -0.05f)
+        if (elev <= 0.0f)
             sunColor = nightColor;
 
-        // Hemisphere ambient follows time of day
+        // Hemisphere ambient follows time of day (cool moonlight ambient at night)
         Vector3 skyDay = new(0.45f, 0.55f, 0.70f);
         Vector3 skySunset = new(0.55f, 0.34f, 0.28f);
-        Vector3 skyNight = new(0.06f, 0.08f, 0.14f);
+        Vector3 skyNight = new(0.07f, 0.10f, 0.18f);
 
         Vector3 groundDay = new(0.22f, 0.19f, 0.16f);
-        Vector3 groundNight = new(0.03f, 0.03f, 0.04f);
+        Vector3 groundNight = new(0.03f, 0.035f, 0.05f);
 
         var ambientSky = Vector3.Lerp(skyNight, Vector3.Lerp(skyDay, skySunset, horizonGlow), dayFactor);
         var ambientGround = Vector3.Lerp(groundNight, groundDay, dayFactor);
@@ -444,11 +444,10 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             light.Color = sunColor;
             light.Intensity = effectiveIntensity;
 
-            // Orient TransformComponent so -UnitZ points toward sunDir
+            // Always orient TransformComponent so -UnitZ points toward the true sunDir (never flip at night)
             var tr = sun.Get<TransformComponent>();
-            var activeDir = elev > -0.05f ? sunDir : -sunDir;
-            float pitch = MathF.Asin(Math.Clamp(activeDir.Y, -0.999f, 0.999f));
-            float yaw = MathF.Atan2(-activeDir.X, -activeDir.Z);
+            float pitch = MathF.Asin(Math.Clamp(sunDir.Y, -0.999f, 0.999f));
+            float yaw = MathF.Atan2(-sunDir.X, -sunDir.Z);
             tr.Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, yaw) * Quaternion.FromAxisAngle(Vector3.UnitX, pitch);
         }
 
