@@ -22,6 +22,7 @@ public class ImGuiGameWindow(GameWindowSettings gameWindowSettings, NativeWindow
     protected override unsafe void OnLoad()
     {
         base.OnLoad();
+        VSync = VSyncMode.On;
 
         ImGuiContext = ImGui.CreateContext();
         ImPlotContext = ImPlot.CreateContext();

@@ -21,6 +21,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private Camera Camera { get; set; } = null!;
     private World World { get; set; } = null!;
     private PhysicsWorld Physics { get; set; } = null!;
+    private AssetLoader AssetLoader { get; set; } = null!;
     private SceneRenderer SceneRenderer { get; set; } = null!;
     private SceneEditorPanel EditorPanel { get; set; } = null!;
     private FpsCounter FpsCounter { get; set; } = null!;
@@ -81,6 +82,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
         World = new World();
         Physics = new PhysicsWorld();
+        AssetLoader = new AssetLoader();
         World.AddSystem(Physics);
         SceneRenderer = new SceneRenderer(withSky: true, withGroundPlane: true);
         EditorPanel = new SceneEditorPanel { Physics = Physics };
@@ -141,6 +143,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
     private void ClearScene()
     {
+        AssetLoader.CancelAll();
         EditorPanel.SelectedEntity = null;
         _sunEntity = null;
         _animatedCharacterEntity = null;
@@ -190,149 +193,168 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         sphere.Get<TransformComponent>().Position = position;
     }
 
-    private void SpawnAnimatedCharacter(Vector3 floorPosition, float targetHeight = 1.25f, float yawDegrees = 90f)
+    private void SpawnAnimatedCharacterAsync(Vector3 floorPosition, float targetHeight = 1.25f, float yawDegrees = 90f)
     {
         string? charPath = FindAnimatedCharacterPath();
         if (charPath is null) return;
 
-        var charModel = GltfModelLoader.Load(charPath);
-        _addonModels.Add(charModel);
+        AssetLoader.LoadModelAsync(charPath, charModel =>
+        {
+            _addonModels.Add(charModel);
 
-        var entity = World.SpawnModel(charModel, Path.GetFileNameWithoutExtension(charPath));
-        float h = MathF.Max(charModel.Bounds.Size.Y, 0.001f);
-        float scale = targetHeight / h;
+            var entity = World.SpawnModel(charModel, Path.GetFileNameWithoutExtension(charPath));
+            float h = MathF.Max(charModel.Bounds.Size.Y, 0.001f);
+            float scale = targetHeight / h;
 
-        var tr = entity.Get<TransformComponent>();
-        tr.Scale = new Vector3(scale);
-        tr.EulerAnglesDegrees = new Vector3(0f, yawDegrees, 0f);
-        tr.Position = new Vector3(
-            floorPosition.X,
-            floorPosition.Y - charModel.Bounds.Min.Y * scale,
-            floorPosition.Z);
+            var tr = entity.Get<TransformComponent>();
+            tr.Scale = new Vector3(scale);
+            tr.EulerAnglesDegrees = new Vector3(0f, yawDegrees, 0f);
+            tr.Position = new Vector3(
+                floorPosition.X,
+                floorPosition.Y - charModel.Bounds.Min.Y * scale,
+                floorPosition.Z);
 
-        if (entity.TryGet<AnimatorComponent>(out var anim) && anim is not null && anim.Clips.Count > 1)
-            anim.ActiveClipIndex = 1; // Default to "Walk" on Fox.glb
+            if (entity.TryGet<AnimatorComponent>(out var anim) && anim is not null && anim.Clips.Count > 1)
+                anim.ActiveClipIndex = 1; // Default to "Walk" on Fox.glb
 
-        _animatedCharacterEntity = entity;
+            _animatedCharacterEntity = entity;
+        });
     }
 
     private void LoadGltfScene(string path)
     {
-        try
+        if (!File.Exists(path))
         {
-            var model = GltfModelLoader.Load(path);
-            ClearScene();
-            LoadedModel = model;
-            _isGltfScene = true;
-            SceneRenderer.ShowGroundPlane = false;
-            SceneRenderer.ShowSky = true;
+            _sceneStatus = $"File not found: {path}";
+            return;
+        }
 
-            var modelRoot = World.SpawnModel(model);
-            var bounds = model.Bounds;
-            var center = bounds.Center;
-            var size = bounds.Size;
-            float diag = MathF.Max(size.Length, 1.0f);
+        ClearScene();
+        _isGltfScene = true;
+        SceneRenderer.ShowGroundPlane = false;
+        SceneRenderer.ShowSky = true;
 
-            bool isSponza = Path.GetFileName(path).Contains("Sponza", StringComparison.OrdinalIgnoreCase);
-            float floorY = isSponza ? 0.0f : bounds.Min.Y;
+        bool isSponza = Path.GetFileName(path).Contains("Sponza", StringComparison.OrdinalIgnoreCase);
 
-            SceneRenderer.ShadowFocus = new Vector3(center.X, floorY + 2.0f, center.Z);
-            SceneRenderer.ShadowHalfExtent = Math.Clamp(MathF.Max(size.X, size.Z) * 0.6f, 12f, 35f);
+        // Set up initial sky, directional sun, and camera immediately so the window is live while assets stream in
+        _sunEntity = World.CreateEntity("Sun Light")
+            .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.88f), Intensity = _sunIntensityScale });
+        ApplySkyAndSunLighting();
 
-            AddStaticFloorCollider(floorY);
+        Title = $"OpenTK-ImGui-Template — Loading {Path.GetFileName(path)}...";
+        _sceneStatus = $"Loading {Path.GetFileName(path)} asynchronously...";
 
-            int addonCount = 0;
-            if (isSponza)
+        int loadedAddons = 0;
+
+        AssetLoader.LoadModelAsync(
+            path,
+            onLoaded: model =>
             {
-                string? curtainsPath = FindAssetPath(
-                    Path.Combine("Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"),
-                    Path.Combine("Template3D", "Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"));
-                if (curtainsPath != null)
+                LoadedModel = model;
+                World.SpawnModel(model);
+
+                var bounds = model.Bounds;
+                var center = bounds.Center;
+                var size = bounds.Size;
+                float diag = MathF.Max(size.Length, 1.0f);
+                float floorY = isSponza ? 0.0f : bounds.Min.Y;
+
+                SceneRenderer.ShadowFocus = new Vector3(center.X, floorY + 2.0f, center.Z);
+                SceneRenderer.ShadowHalfExtent = Math.Clamp(MathF.Max(size.X, size.Z) * 0.6f, 12f, 35f);
+
+                AddStaticFloorCollider(floorY);
+
+                // Warm interior point lights along the main hall
+                float lightY = floorY + MathF.Min(3.4f, size.Y * 0.28f);
+                float lightRange = MathF.Max(14.0f, size.X * 0.55f);
+                float lightIntensity = MathF.Max(16.0f, size.X * 1.0f);
+                float spanX = size.X * 0.28f;
+
+                Vector3[] lightPositions =
+                [
+                    new(center.X - spanX, lightY, center.Z),
+                    new(center.X, lightY + 0.8f, center.Z),
+                    new(center.X + spanX, lightY, center.Z),
+                ];
+
+                for (int i = 0; i < lightPositions.Length; i++)
                 {
-                    var curtains = GltfModelLoader.Load(curtainsPath);
+                    var pt = World.CreateEntity($"Atrium Light {i + 1}")
+                        .Add(new LightComponent
+                        {
+                            Type = LightType.Point,
+                            Color = new Vector3(1.0f, 0.86f, 0.68f),
+                            Intensity = lightIntensity,
+                            Range = lightRange
+                        });
+                    pt.Get<TransformComponent>().Position = lightPositions[i];
+                }
+
+                // Place FlyBy camera inside the atrium
+                Vector3 camPos = new(center.X - size.X * 0.24f, floorY + 1.85f, center.Z + 0.4f);
+                Vector3 camTarget = new(center.X + size.X * 0.08f, floorY + 1.6f, center.Z);
+
+                _flySpeed = Math.Clamp(diag * 0.14f, 2.0f, 12.0f);
+                _controlMode = 2;
+                Camera.Control = new FlyByControl(camPos, camTarget)
+                {
+                    Speed = _flySpeed,
+                    RotationSpeed = _mouseSensitivity
+                };
+                if (Camera.Projection is PerspectiveProjection persp)
+                {
+                    persp.Near = MathF.Max(0.05f, diag * 0.002f);
+                    persp.Far = MathF.Max(300.0f, diag * 10.0f);
+                }
+
+                Title = $"OpenTK-ImGui-Template — {Path.GetFileName(path)}";
+                _sceneStatus = $"Loaded {Path.GetFileName(path)} (+{loadedAddons} addons): {model.Primitives.Count} meshes, {model.Materials.Count} materials, {model.Textures.Count} textures";
+            },
+            onFailed: ex =>
+            {
+                _sceneStatus = $"Load failed: {ex.Message}";
+            });
+
+        // Queue Intel Sponza add-ons asynchronously in parallel!
+        if (isSponza)
+        {
+            string? curtainsPath = FindAssetPath(
+                Path.Combine("Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"),
+                Path.Combine("Template3D", "Assets", "IntelSponzaCurtains", "NewSponza_Curtains_glTF.gltf"));
+            if (curtainsPath != null)
+            {
+                AssetLoader.LoadModelAsync(curtainsPath, curtains =>
+                {
                     _addonModels.Add(curtains);
                     World.SpawnModel(curtains, "Sponza Curtains");
-                    addonCount++;
-                }
+                    loadedAddons++;
+                    UpdateLoadedStatus(path, loadedAddons);
+                });
+            }
 
-                string? ivyPath = FindAssetPath(
-                    Path.Combine("Assets", "IntelSponzaIvy", "NewSponza_IvyGrowth_glTF.gltf"),
-                    Path.Combine("Template3D", "Assets", "IntelSponzaIvy", "NewSponza_IvyGrowth_glTF.gltf"));
-                if (ivyPath != null)
+            string? ivyPath = FindAssetPath(
+                Path.Combine("Assets", "IntelSponzaIvy", "NewSponza_IvyGrowth_glTF.gltf"),
+                Path.Combine("Template3D", "Assets", "IntelSponzaIvy", "NewSponza_IvyGrowth_glTF.gltf"));
+            if (ivyPath != null)
+            {
+                AssetLoader.LoadModelAsync(ivyPath, ivy =>
                 {
-                    var ivy = GltfModelLoader.Load(ivyPath);
                     _addonModels.Add(ivy);
                     World.SpawnModel(ivy, "Sponza Ivy");
-                    addonCount++;
-                }
-
-                SpawnAnimatedCharacter(new Vector3(center.X, floorY, center.Z), targetHeight: 1.25f, yawDegrees: -90f);
-                if (_animatedCharacterEntity.HasValue)
-                    addonCount++;
+                    loadedAddons++;
+                    UpdateLoadedStatus(path, loadedAddons);
+                });
             }
 
-            // Directional sun light driven by Sky & Time of Day
-            _sunEntity = World.CreateEntity("Sun Light")
-                .Add(new LightComponent { Type = LightType.Directional, Color = new Vector3(1.0f, 0.96f, 0.88f), Intensity = _sunIntensityScale });
-            ApplySkyAndSunLighting();
-
-            // Warm interior point lights along the main hall
-            float lightY = floorY + MathF.Min(3.4f, size.Y * 0.28f);
-            float lightRange = MathF.Max(14.0f, size.X * 0.55f);
-            float lightIntensity = MathF.Max(16.0f, size.X * 1.0f);
-            float spanX = size.X * 0.28f;
-
-            Vector3[] lightPositions =
-            [
-                new(center.X - spanX, lightY, center.Z),
-                new(center.X, lightY + 0.8f, center.Z),
-                new(center.X + spanX, lightY, center.Z),
-            ];
-
-            for (int i = 0; i < lightPositions.Length; i++)
-            {
-                var pt = World.CreateEntity($"Atrium Light {i + 1}")
-                    .Add(new LightComponent
-                    {
-                        Type = LightType.Point,
-                        Color = new Vector3(1.0f, 0.86f, 0.68f),
-                        Intensity = lightIntensity,
-                        Range = lightRange
-                    });
-                pt.Get<TransformComponent>().Position = lightPositions[i];
-            }
-
-            // Place FlyBy camera inside the atrium looking at the animated character & courtyard
-            Vector3 camPos = new(
-                center.X - size.X * 0.24f,
-                floorY + 1.85f,
-                center.Z + 0.4f);
-            Vector3 camTarget = new(
-                center.X + size.X * 0.08f,
-                floorY + 1.6f,
-                center.Z);
-
-            _flySpeed = Math.Clamp(diag * 0.14f, 2.0f, 12.0f);
-            _controlMode = 2;
-            Camera.Control = new FlyByControl(camPos, camTarget)
-            {
-                Speed = _flySpeed,
-                RotationSpeed = _mouseSensitivity
-            };
-            if (Camera.Projection is PerspectiveProjection persp)
-            {
-                persp.Near = MathF.Max(0.05f, diag * 0.002f);
-                persp.Far = MathF.Max(300.0f, diag * 10.0f);
-            }
-
-            Title = $"OpenTK-ImGui-Template — {Path.GetFileName(path)}";
-            _sceneStatus = $"Loaded {Path.GetFileName(path)} (+{addonCount} addons): {model.Primitives.Count} meshes, {model.Materials.Count} materials, {model.Textures.Count} textures";
-            _ = modelRoot;
+            SpawnAnimatedCharacterAsync(new Vector3(0f, 0f, 0f), targetHeight: 1.25f, yawDegrees: -90f);
+            loadedAddons++;
         }
-        catch (Exception ex)
-        {
-            _sceneStatus = $"Load failed: {ex.Message}";
-        }
+    }
+
+    private void UpdateLoadedStatus(string mainPath, int addons)
+    {
+        if (LoadedModel is { } m)
+            _sceneStatus = $"Loaded {Path.GetFileName(mainPath)} (+{addons} addons): {m.Primitives.Count} meshes, {m.Materials.Count} materials, {m.Textures.Count} textures";
     }
 
     private void BuildProceduralDemoScene()
@@ -386,8 +408,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         SpawnPhysicsCrate(new Vector3(baseX + 0.52f, 1.5f, baseZ));
         SpawnPhysicsCrate(new Vector3(baseX,         2.5f, baseZ), new Vector3(0.85f, 0.32f, 0.22f));
 
-        // 4. Animated glTF Fox on the left
-        SpawnAnimatedCharacter(new Vector3(-2.4f, 0f, 0.5f), targetHeight: 1.25f, yawDegrees: 30f);
+        // 4. Animated glTF Fox on the left (loaded asynchronously)
+        SpawnAnimatedCharacterAsync(new Vector3(-2.4f, 0f, 0.5f), targetHeight: 1.25f, yawDegrees: 30f);
 
         _controlMode = 3;
         Camera.Control = new EditorControl(new Vector3(0.0f, 3.8f, 8.5f), new Vector3(0.0f, 1.1f, -0.5f))
@@ -491,6 +513,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     protected override void OnUnload()
     {
         ClearScene();
+        AssetLoader.Dispose();
         _physicsCubeMesh.Dispose();
         _physicsSphereMesh.Dispose();
         Physics.Dispose();
@@ -511,6 +534,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         base.OnUpdateFrame(args);
         float dt = (float)args.Time;
+
+        AssetLoader.ProcessMainThreadUploads(maxUploadsPerFrame: 2);
 
         if (_autoDayNightCycle)
         {
@@ -549,10 +574,35 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     {
         EditorPanel.Draw(World, Camera);
         DrawControlPanel();
+        DrawLoadingOverlay();
         FpsCounter.Render();
 
         if (_showDemoWindow)
             ImGui.ShowDemoWindow(ref _showDemoWindow);
+    }
+
+    private void DrawLoadingOverlay()
+    {
+        var jobs = AssetLoader.GetActiveProgress();
+        if (jobs.Count == 0) return;
+
+        ImGui.SetNextWindowPos(new ImVec2(ClientSize.X * 0.5f, 24), ImGuiCond.Always, new ImVec2(0.5f, 0f));
+        ImGui.SetNextWindowSize(new ImVec2(420, 0), ImGuiCond.Always);
+
+        var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.AlwaysAutoResize |
+                    ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav;
+
+        if (ImGui.Begin("##AsyncLoadingOverlay", flags))
+        {
+            ImGui.Text($"Loading Assets ({jobs.Count} active)...");
+            ImGui.Separator();
+            foreach (var job in jobs)
+            {
+                ImGui.Text($"{job.Label} — {job.Stage}");
+                ImGui.ProgressBar(job.Fraction, new ImVec2(-1, 14));
+            }
+        }
+        ImGui.End();
     }
 
     private void DrawControlPanel()
@@ -701,7 +751,11 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
             }
 
             ImGui.Separator();
-            ImGui.Checkbox("ImGui Demo Window", ref _showDemoWindow);
+            bool vsync = VSync == VSyncMode.On;
+            if (ImGui.Checkbox("VSync", ref vsync))
+                VSync = vsync ? VSyncMode.On : VSyncMode.Off;
+            ImGui.SameLine();
+            ImGui.Checkbox("ImGui Demo", ref _showDemoWindow);
         }
         ImGui.End();
     }

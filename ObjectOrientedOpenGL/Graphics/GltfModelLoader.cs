@@ -81,23 +81,69 @@ public static class GltfModelLoader
         return ParseCpu(gltf);
     }
 
-    private static Model BuildModel(string path, ModelRoot gltf)
+    /// <summary>
+    /// Asynchronously parses a <c>.gltf</c> or <c>.glb</c> file and decodes all textures on background threads
+    /// without touching OpenGL. Call <see cref="UploadPrepared"/> on the OpenGL main thread to create GPU resources.
+    /// </summary>
+    public static Task<PreparedGltfModel> PrepareAsync(
+        string path,
+        IProgress<Core.AssetLoadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        var parsed = ParseCpu(gltf);
+        ValidateExtension(path);
+        string label = Path.GetFileName(path);
 
-        // 1. Decode images in parallel on CPU, then upload textures on the OpenGL thread
-        var decoded = new ImageResult?[parsed.Images.Count];
-        Parallel.For(0, parsed.Images.Count, i =>
+        return Task.Run(() =>
         {
-            var imgBytes = parsed.Images[i];
-            if (imgBytes.Length > 0)
-            {
-                using var ms = new MemoryStream(imgBytes, writable: false);
-                decoded[i] = ImageResult.FromStream(ms, ColorComponents.RedGreenBlueAlpha);
-            }
-        });
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new Core.AssetLoadProgress(label, "Parsing glTF...", 0.05f));
 
-        var textures = new List<Texture>(parsed.Images.Count);
+            var gltf = ModelRoot.Load(path);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var parsed = ParseCpu(gltf);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var decoded = DecodeImagesParallel(parsed.Images, label, progress, cancellationToken);
+            progress?.Report(new Core.AssetLoadProgress(label, "Ready for GPU upload", 0.98f));
+
+            return new PreparedGltfModel(path, parsed, decoded);
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Asynchronously parses a <c>.glb</c> stream and decodes all textures on background threads without touching OpenGL.
+    /// </summary>
+    public static Task<PreparedGltfModel> PrepareGlbAsync(
+        Stream stream,
+        string name = "MemoryModel.glb",
+        IProgress<Core.AssetLoadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new Core.AssetLoadProgress(name, "Parsing GLB...", 0.05f));
+
+            var gltf = ModelRoot.ReadGLB(stream);
+            var parsed = ParseCpu(gltf);
+            var decoded = DecodeImagesParallel(parsed.Images, name, progress, cancellationToken);
+            progress?.Report(new Core.AssetLoadProgress(name, "Ready for GPU upload", 0.98f));
+
+            return new PreparedGltfModel(name, parsed, decoded);
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Uploads a CPU-prepared glTF model onto the active OpenGL context (must be called on the OpenGL thread).
+    /// </summary>
+    public static Model UploadPrepared(PreparedGltfModel prepared)
+    {
+        var parsed = prepared.Parsed;
+        var decoded = prepared.DecodedImages;
+
+        // 1. Upload decoded textures
+        var textures = new List<Texture>(decoded.Length);
         for (int i = 0; i < decoded.Length; i++)
         {
             var img = decoded[i];
@@ -176,7 +222,43 @@ public static class GltfModelLoader
         }
 
         var root = BuildNode(parsed.Root);
-        return new Model(path, root, allPrimitives, materials, textures, parsed.Animations, parsed.Skins);
+        return new Model(prepared.Path, root, allPrimitives, materials, textures, parsed.Animations, parsed.Skins);
+    }
+
+    private static ImageResult?[] DecodeImagesParallel(
+        List<byte[]> images,
+        string label,
+        IProgress<Core.AssetLoadProgress>? progress,
+        CancellationToken ct)
+    {
+        var decoded = new ImageResult?[images.Count];
+        if (images.Count == 0) return decoded;
+
+        int completed = 0;
+        var opts = new ParallelOptions { CancellationToken = ct };
+        Parallel.For(0, images.Count, opts, i =>
+        {
+            var imgBytes = images[i];
+            if (imgBytes.Length > 0)
+            {
+                using var ms = new MemoryStream(imgBytes, writable: false);
+                decoded[i] = ImageResult.FromStream(ms, ColorComponents.RedGreenBlueAlpha);
+            }
+            int done = Interlocked.Increment(ref completed);
+            if (progress is not null)
+            {
+                float frac = 0.15f + 0.80f * ((float)done / images.Count);
+                progress.Report(new Core.AssetLoadProgress(label, $"Decoding textures ({done}/{images.Count})", frac));
+            }
+        });
+        return decoded;
+    }
+
+    private static Model BuildModel(string path, ModelRoot gltf)
+    {
+        var parsed = ParseCpu(gltf);
+        var decoded = DecodeImagesParallel(parsed.Images, Path.GetFileName(path), null, CancellationToken.None);
+        return UploadPrepared(new PreparedGltfModel(path, parsed, decoded));
     }
 
     private static ParsedGltfData ParseCpu(ModelRoot gltf)
@@ -505,6 +587,8 @@ public static class GltfModelLoader
                 : new Vector4(1, 0, 0, 1);
         }
     }
+
+    public sealed record PreparedGltfModel(string Path, ParsedGltfData Parsed, ImageResult?[] DecodedImages);
 
     public sealed record ParsedGltfData(
         ParsedNode Root,

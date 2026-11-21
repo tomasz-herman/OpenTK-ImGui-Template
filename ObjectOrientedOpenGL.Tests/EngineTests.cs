@@ -207,6 +207,37 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task GltfModelLoader_PrepareGlbAsync_Reports_Progress_And_Parses_OffThread()
+    {
+        var model = ModelRoot.CreateModel();
+        var mesh = model.CreateMesh("AsyncTri");
+        var prim = mesh.CreatePrimitive();
+        System.Numerics.Vector3[] positions = [new(0, 0, 0), new(1, 0, 0), new(0, 1, 0)];
+        uint[] indices = [0, 1, 2];
+
+        var posAcc = model.CreateAccessor();
+        posAcc.SetVertexData(model.UseBufferView(MemoryMarshal.AsBytes(positions.AsSpan()).ToArray()), 0, 3, new SharpGLTF.Memory.AttributeFormat(DimensionType.VEC3));
+        var idxAcc = model.CreateAccessor();
+        idxAcc.SetIndexData(model.UseBufferView(MemoryMarshal.AsBytes(indices.AsSpan()).ToArray()), 0, 3, IndexEncodingType.UNSIGNED_INT);
+        prim.SetVertexAccessor("POSITION", posAcc);
+        prim.SetIndexAccessor(idxAcc);
+
+        var scene = model.UseScene("Main");
+        scene.CreateNode("Root").Mesh = mesh;
+
+        using var ms = new MemoryStream();
+        model.WriteGLB(ms);
+        ms.Position = 0;
+
+        var reports = new List<ObjectOrientedOpenGL.Core.AssetLoadProgress>();
+        var progress = new Progress<ObjectOrientedOpenGL.Core.AssetLoadProgress>(p => { lock (reports) reports.Add(p); });
+
+        var prepared = await GltfModelLoader.PrepareGlbAsync(ms, "AsyncTri.glb", progress);
+        Assert.Equal("AsyncTri.glb", prepared.Path);
+        Assert.Single(prepared.Parsed.Meshes);
+    }
+
+    [Fact]
     public void AnimationSystem_Evaluates_Keyframes_And_Updates_Transform()
     {
         var world = new World();
