@@ -91,7 +91,22 @@ public abstract class CanvasGameWindow(
 
             ImVec2 imgScreenPos = ImGui.GetCursorScreenPos();
             var texRef = new ImTextureRef { _TexID = (ulong)Canvas.TextureHandle };
-            ImGui.Image(texRef, displaySize, ImVec2.Zero, ImVec2.One);
+
+            unsafe
+            {
+                var drawList = ImGui.GetWindowDrawList();
+                var pio = ImGui.GetPlatformIO();
+                nint setNearest = pio.DrawCallback_SetSamplerNearest;
+                nint setLinear = pio.DrawCallback_SetSamplerLinear;
+
+                if (Canvas.NearestFilter && setNearest != 0)
+                    ImGuiNative.ImDrawList_AddCallback((ImDrawList*)drawList.Handle, setNearest, null, 0);
+
+                ImGui.Image(texRef, displaySize, ImVec2.Zero, ImVec2.One);
+
+                if (Canvas.NearestFilter && setLinear != 0)
+                    ImGuiNative.ImDrawList_AddCallback((ImDrawList*)drawList.Handle, setLinear, null, 0);
+            }
 
             IsCanvasHovered = ImGui.IsItemHovered();
             if (IsCanvasHovered)

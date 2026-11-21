@@ -49,6 +49,8 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
     private SandElement[,] _sand = new SandElement[160, 120];
     private SandElement _selectedElement = SandElement.Sand;
     private int _sandBrushRadius = 4;
+    private float _sandStepsPerSec = 45f;
+    private float _sandTimer;
 
     // Plasma state
     private float _plasmaTime;
@@ -109,7 +111,16 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
 
             case DemoMode.FallingSand:
                 UpdateSandInput();
-                StepFallingSand(canvas);
+                _sandTimer += dt;
+                float sandInterval = 1.0f / MathF.Max(_sandStepsPerSec, 1f);
+                int sandSteps = 0;
+                while (_sandTimer >= sandInterval && sandSteps < 3)
+                {
+                    _sandTimer -= sandInterval;
+                    StepFallingSand();
+                    sandSteps++;
+                }
+                RenderFallingSand(canvas);
                 break;
 
             case DemoMode.Paint:
@@ -307,9 +318,9 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
         }
     }
 
-    private void StepFallingSand(IPixelCanvas canvas)
+    private void StepFallingSand()
     {
-        int w = canvas.Width, h = canvas.Height;
+        int w = _sand.GetLength(0), h = _sand.GetLength(1);
 
         for (int y = h - 2; y >= 0; y--)
         {
@@ -362,7 +373,11 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                 }
             }
         }
+    }
 
+    private void RenderFallingSand(IPixelCanvas canvas)
+    {
+        int w = canvas.Width, h = canvas.Height;
         var sandCol = new Color4(0.92f, 0.78f, 0.42f, 1f);
         var waterCol = new Color4(0.22f, 0.58f, 0.96f, 1f);
         var stoneCol = new Color4(0.45f, 0.47f, 0.52f, 1f);
@@ -552,6 +567,7 @@ public class Program(GameWindowSettings gameWindowSettings, NativeWindowSettings
                 ImGui.SameLine();
                 if (ImGui.RadioButton("Stone", _selectedElement == SandElement.Stone)) _selectedElement = SandElement.Stone;
                 ImGui.SliderInt("Brush", ref _sandBrushRadius, 1, 14);
+                ImGui.SliderFloat("Sim Speed", ref _sandStepsPerSec, 5f, 120f, "%.0f step/s");
                 if (ImGui.Button("Clear Sand")) Array.Clear(_sand);
                 break;
 
