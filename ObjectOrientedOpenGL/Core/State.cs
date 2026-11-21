@@ -186,7 +186,7 @@ public class State : IDisposable
 
         public void RestoreState()
         {
-            GL.PolygonMode(MaterialFace.FrontAndBack, (OpenTK.Graphics.OpenGL4.PolygonMode)_polygonMode[0]);
+            GL.PolygonMode(TriangleFace.FrontAndBack, (OpenTK.Graphics.OpenGL4.PolygonMode)_polygonMode[0]);
         }
     }
 

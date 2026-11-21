@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL4;
 using StbImageSharp;
@@ -9,6 +8,8 @@ namespace ObjectOrientedOpenGL.Core;
 public class Texture : IDisposable, IBindable
 {
     public int Handle { get; }
+    public int Width { get; private set; }
+    public int Height { get; private set; }
 
     public Texture()
     {
@@ -26,9 +27,32 @@ public class Texture : IDisposable, IBindable
         if (generateMipmaps) GenerateMipmaps();
     }
 
+    public static Texture FromMemory(ReadOnlySpan<byte> encodedImageBytes, Options? options = null, bool generateMipmaps = true)
+    {
+        var tex = new Texture();
+        using var ms = new MemoryStream(encodedImageBytes.ToArray());
+        ImageResult image = ImageResult.FromStream(ms, ColorComponents.RedGreenBlueAlpha);
+        tex.Allocate(image.Width, image.Height, SizedInternalFormat.Rgba8);
+        tex.Update(image.Data, 0, 0, image.Width, image.Height, PixelFormat.Rgba, PixelType.UnsignedByte);
+        tex.ApplyOptions(options ?? Options.Default);
+        if (generateMipmaps) tex.GenerateMipmaps();
+        return tex;
+    }
+
+    public static Texture CreateSolidColor(byte r, byte g, byte b, byte a = 255)
+    {
+        var tex = new Texture();
+        tex.Allocate(1, 1, SizedInternalFormat.Rgba8, 1);
+        byte[] px = [r, g, b, a];
+        tex.Update(px, 0, 0, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte);
+        tex.ApplyOptions(Options.Nearest);
+        return tex;
+    }
+
     public void LoadDataFromResources(string path)
     {
-        using var stream = ResourcesUtils.GetResourceStream(path);
+        using var stream = ResourcesUtils.GetResourceStream(path)
+            ?? throw new FileNotFoundException($"Embedded texture resource not found: {path}");
 
         ImageResult image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 
@@ -48,16 +72,33 @@ public class Texture : IDisposable, IBindable
 
     public void Allocate(int width, int height, SizedInternalFormat internalFormat, int levels = -1)
     {
-        if (levels < 0) levels = BitOperations.Log2((uint)Math.Max(width, height));
+        Width = width;
+        Height = height;
+        if (levels < 0) levels = Math.Max(1, BitOperations.Log2((uint)Math.Max(1, Math.Max(width, height))) + 1);
         GL.TextureStorage2D(Handle, levels, internalFormat, width, height);
+    }
+
+    public unsafe void Update<T>(ReadOnlySpan<T> data, int x, int y, int width, int height, PixelFormat format, PixelType pixelType,
+        int level = 0) where T : unmanaged
+    {
+        fixed (T* ptr = data)
+        {
+            Update((nint)ptr, x, y, width, height, format, pixelType, level);
+        }
     }
 
     public void Update(Array data, int x, int y, int width, int height, PixelFormat format, PixelType pixelType,
         int level = 0)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        Update(gcHandle.AddrOfPinnedObject(), x, y, width, height, format, pixelType, level);
-        gcHandle.Free();
+        try
+        {
+            Update(gcHandle.AddrOfPinnedObject(), x, y, width, height, format, pixelType, level);
+        }
+        finally
+        {
+            gcHandle.Free();
+        }
     }
 
     public void Update(IntPtr data, int x, int y, int width, int height, PixelFormat format, PixelType pixelType,
@@ -69,8 +110,14 @@ public class Texture : IDisposable, IBindable
     public void ReadData(Array data, int bufferSize, PixelFormat format, PixelType type, int level = 0)
     {
         var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        ReadData(gcHandle.AddrOfPinnedObject(), bufferSize, format, type, level);
-        gcHandle.Free();
+        try
+        {
+            ReadData(gcHandle.AddrOfPinnedObject(), bufferSize, format, type, level);
+        }
+        finally
+        {
+            gcHandle.Free();
+        }
     }
 
     public void ReadData(IntPtr data, int bufferSize, PixelFormat format, PixelType type, int level = 0)
@@ -120,6 +167,18 @@ public class Texture : IDisposable, IBindable
             new EnumParameter(TextureParameterName.TextureWrapS, TextureWrapMode.Repeat),
             new EnumParameter(TextureParameterName.TextureWrapT, TextureWrapMode.Repeat));
 
+        public static Options Nearest => new(
+            new EnumParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest),
+            new EnumParameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest),
+            new EnumParameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge),
+            new EnumParameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge));
+
+        public static Options Linear => new(
+            new EnumParameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear),
+            new EnumParameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear),
+            new EnumParameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge),
+            new EnumParameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge));
+
         public Dictionary<TextureParameterName, IParameter> Parameters { get; } = new();
 
         public Options(params IParameter[] parameters)
@@ -138,13 +197,13 @@ public class Texture : IDisposable, IBindable
             Parameters[name] = new EnumParameter(name, value);
             return this;
         }
-        
+
         public Options SetInt(TextureParameterName name, params int[] value)
         {
             Parameters[name] = new IntParameter(name, value);
             return this;
         }
-        
+
         public Options SetFloat(TextureParameterName name, params float[] value)
         {
             Parameters[name] = new FloatParameter(name, value);
@@ -154,8 +213,8 @@ public class Texture : IDisposable, IBindable
 
     public interface IParameter
     {
-        public TextureParameterName Name { get; }
-        public void Apply(int texture);
+        TextureParameterName Name { get; }
+        void Apply(int texture);
     }
 
     public class IntParameter(TextureParameterName name, params int[] value) : IParameter

@@ -1,4 +1,4 @@
-using ImGuiNET;
+using ImSharp;
 
 namespace ObjectOrientedOpenGL.Extra;
 
@@ -8,14 +8,15 @@ public class FpsCounter
     public double Fps { get; private set; }
     public double UpdateInterval { get; set; }
 
-    public FpsCounter(double updateInterval = 1.0)
+    public FpsCounter(double updateInterval = 0.5)
     {
         UpdateInterval = updateInterval;
-        Overlay = new Overlay(new Vector2tk(-10, 10), () => { ImGui.TextUnformatted($"{Fps:##.0}"); }, Anchor.TopRight);
+        Overlay = new Overlay(new Vector2tk(-12, 10), () => ImGui.TextUnformatted($"{Fps:0.0} FPS"), Anchor.TopRight);
     }
 
     private double _accumulator;
     private int _frames;
+
     public void Update(double dt)
     {
         _accumulator += dt;
@@ -29,8 +30,5 @@ public class FpsCounter
         }
     }
 
-    public void Render()
-    {
-        Overlay.Render();
-    }
+    public void Render() => Overlay.Render();
 }

@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using OpenTK.Graphics.OpenGL4;
@@ -13,51 +12,59 @@ public class Shader : IDisposable
 
     public Shader(params (string path, ShaderType type)[] paths)
     {
-        var sources = new List<(string source, ShaderType type)>();
-        foreach (var (path, type) in paths)
+        var sources = paths.Select(p => (ReadSource(p.path), p.type)).ToArray();
+        Build(sources);
+    }
+
+    private Shader()
+    {
+    }
+
+    public static Shader FromSources(params (string source, ShaderType type)[] sources)
+    {
+        var shader = new Shader();
+        shader.Build(sources);
+        return shader;
+    }
+
+    private void Build((string source, ShaderType type)[] sources)
+    {
+        int[] shaders = new int[sources.Length];
+        for (int i = 0; i < sources.Length; i++)
         {
-            sources.Add((ReadSource(path), type));
+            shaders[i] = CreateShader(sources[i].source, sources[i].type);
+            CompileShader(shaders[i], sources[i].type);
         }
 
-        var shaders = new List<int>();
-        foreach (var (source, type) in sources)
-        {
-            shaders.Add(CreateShader(source, type));
-        }
-
-        foreach (var shader in shaders)
-        {
-            CompileShader(shader);
-        }
-
-        CreateProgram(shaders.ToArray());
-
-        CleanupShaders(shaders.ToArray());
-
+        CreateProgram(shaders);
+        CleanupShaders(shaders);
         InitializeUniformsMap();
     }
 
-    private string ReadSource(string path)
+    private static string ReadSource(string path)
     {
         using var stream = ResourcesUtils.GetResourceStream(path);
-        if (stream == null) throw new Exception("Shader not found!");
+        if (stream == null) throw new FileNotFoundException($"Shader resource not found: {path}");
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
     }
 
-    private int CreateShader(string source, ShaderType type)
+    private static int CreateShader(string source, ShaderType type)
     {
         int shader = GL.CreateShader(type);
         GL.ShaderSource(shader, source);
         return shader;
     }
 
-    private void CompileShader(int shader)
+    private static void CompileShader(int shader, ShaderType type)
     {
         GL.CompileShader(shader);
-
+        GL.GetShader(shader, ShaderParameter.CompileStatus, out int status);
         var log = GL.GetShaderInfoLog(shader);
-        if (log != string.Empty) Console.WriteLine(log);
+        if (status == 0)
+            throw new InvalidOperationException($"{type} compilation failed:\n{log}");
+        if (!string.IsNullOrWhiteSpace(log))
+            Console.WriteLine(log);
     }
 
     private void CreateProgram(params int[] shaders)
@@ -65,11 +72,15 @@ public class Shader : IDisposable
         Handle = GL.CreateProgram();
 
         foreach (var shader in shaders)
-        {
             GL.AttachShader(Handle, shader);
-        }
 
         GL.LinkProgram(Handle);
+        GL.GetProgram(Handle, GetProgramParameterName.LinkStatus, out int status);
+        var log = GL.GetProgramInfoLog(Handle);
+        if (status == 0)
+            throw new InvalidOperationException($"Shader program link failed:\n{log}");
+        if (!string.IsNullOrWhiteSpace(log))
+            Console.WriteLine(log);
     }
 
     private void CleanupShaders(params int[] shaders)
@@ -85,6 +96,8 @@ public class Shader : IDisposable
     {
         GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out int uniforms);
         GL.GetProgram(Handle, GetProgramParameterName.ActiveUniformMaxLength, out int maxUniformLength);
+        if (maxUniformLength <= 0) return;
+
         for (int i = 0; i < uniforms; i++)
         {
             GL.GetActiveUniform(Handle, i, maxUniformLength,
@@ -98,104 +111,82 @@ public class Shader : IDisposable
         }
     }
 
-    public void Use()
-    {
-        GL.UseProgram(Handle);
-    }
+    public void Use() => GL.UseProgram(Handle);
+
+    public bool HasUniform(string name) => Uniforms.TryGetValue(name, out int loc) && loc >= 0;
 
     private int GetUniformLocation(string name)
     {
-        bool found = Uniforms.TryGetValue(name, out int location);
-        if (found) return location;
-        Console.WriteLine($"Uniform with name {name} not found.");
-        return GL.GetUniformLocation(Handle, name);
+        if (Uniforms.TryGetValue(name, out int location))
+            return location;
+        return -1;
     }
 
-    public int GetUniformBlockIndex(string name)
-    {
-        return GL.GetUniformBlockIndex(Handle, name);
-    }
+    public int GetUniformBlockIndex(string name) => GL.GetUniformBlockIndex(Handle, name);
 
     public void LoadInteger(string name, int value)
     {
-        GL.ProgramUniform1(Handle, GetUniformLocation(name), value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniform1(Handle, loc, value);
     }
 
     public void LoadFloat(string name, float value)
     {
-        GL.ProgramUniform1(Handle, GetUniformLocation(name), value);
-    }
-    
-    public void LoadFloat2(string name, Vector2 value)
-    {
-        GL.ProgramUniform2(Handle, GetUniformLocation(name), ref value);
-    }
-    
-    public void LoadFloat2(string name, ref Vector2 value)
-    {
-        GL.ProgramUniform2(Handle, GetUniformLocation(name), ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniform1(Handle, loc, value);
     }
 
-    public void LoadFloat3(string name, Vector3 value)
+    public void LoadFloat2(string name, Vector2 value) => LoadFloat2(name, ref value);
+
+    public void LoadFloat2(string name, ref Vector2 value)
     {
-        GL.ProgramUniform3(Handle, GetUniformLocation(name), ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniform2(Handle, loc, ref value);
     }
+
+    public void LoadFloat3(string name, Vector3 value) => LoadFloat3(name, ref value);
 
     public void LoadFloat3(string name, ref Vector3 value)
     {
-        GL.ProgramUniform3(Handle, GetUniformLocation(name), ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniform3(Handle, loc, ref value);
     }
 
-    public void LoadFloat4(string name, Vector4 value)
-    {
-        GL.ProgramUniform4(Handle, GetUniformLocation(name), ref value);
-    }
+    public void LoadFloat4(string name, Vector4 value) => LoadFloat4(name, ref value);
 
     public void LoadFloat4(string name, ref Vector4 value)
     {
-        GL.ProgramUniform4(Handle, GetUniformLocation(name), ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniform4(Handle, loc, ref value);
     }
 
-    public void LoadMatrix2(string name, Matrix2 value, bool transpose = false)
-    {
-        GL.ProgramUniformMatrix2(Handle, GetUniformLocation(name), transpose, ref value);
-    }
-    
+    public void LoadMatrix2(string name, Matrix2 value, bool transpose = false) => LoadMatrix2(name, ref value, transpose);
+
     public void LoadMatrix2(string name, ref Matrix2 value, bool transpose = false)
     {
-        GL.ProgramUniformMatrix2(Handle, GetUniformLocation(name), transpose, ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniformMatrix2(Handle, loc, transpose, ref value);
     }
 
-    public void LoadMatrix3(string name, Matrix3 value, bool transpose = false)
-    {
-        GL.ProgramUniformMatrix3(Handle, GetUniformLocation(name), transpose, ref value);
-    }
-
+    public void LoadMatrix3(string name, Matrix3 value, bool transpose = false) => LoadMatrix3(name, ref value, transpose);
 
     public void LoadMatrix3(string name, ref Matrix3 value, bool transpose = false)
     {
-        GL.ProgramUniformMatrix3(Handle, GetUniformLocation(name), transpose, ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniformMatrix3(Handle, loc, transpose, ref value);
     }
 
-    public void LoadMatrix4(string name, Matrix4 value, bool transpose = false)
-    {
-        GL.ProgramUniformMatrix4(Handle, GetUniformLocation(name), transpose, ref value);
-    }
+    public void LoadMatrix4(string name, Matrix4 value, bool transpose = false) => LoadMatrix4(name, ref value, transpose);
 
     public void LoadMatrix4(string name, ref Matrix4 value, bool transpose = false)
     {
-        GL.ProgramUniformMatrix4(Handle, GetUniformLocation(name), transpose, ref value);
+        int loc = GetUniformLocation(name);
+        if (loc >= 0) GL.ProgramUniformMatrix4(Handle, loc, transpose, ref value);
     }
 
-    public void Dispatch(int x, int y, int z)
-    {
-        GL.DispatchCompute(x, y, z);
-    }
+    public void Dispatch(int x, int y, int z) => GL.DispatchCompute(x, y, z);
 
-    public void Wait(MemoryBarrierFlags flags = MemoryBarrierFlags.AllBarrierBits)
-    {
-        GL.MemoryBarrier(flags);
-    }
+    public void Wait(MemoryBarrierFlags flags = MemoryBarrierFlags.AllBarrierBits) => GL.MemoryBarrier(flags);
 
     public void Dispose()
     {

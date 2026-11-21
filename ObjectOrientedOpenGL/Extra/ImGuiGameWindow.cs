@@ -1,92 +1,91 @@
+using ImSharp;
+using ImSharp.Backends;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace ObjectOrientedOpenGL.Extra;
 
+/// <summary>
+/// OpenTK <see cref="GameWindow"/> integrated with <c>ImSharp</c> (Dear ImGui 1.93 docking,
+/// ImPlot, and ImGuizmo) using native GLFW and OpenGL3 backends.
+/// </summary>
 public class ImGuiGameWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
     : GameWindow(gameWindowSettings, nativeWindowSettings)
 {
-    private const string FontResource = "ObjectOrientedOpenGL.Resources.Fonts.NotoSansMono.ttf";
-    private bool IsLoaded { get; set; }
-    private ImGuiController ImGuiController { get; set; } = null!;
+    protected ImGuiContextPtr ImGuiContext { get; private set; }
+    protected ImPlotContextPtr ImPlotContext { get; private set; }
+    public bool EnableDocking { get; set; } = true;
+    public bool EnableViewports { get; set; } = false;
+    public bool EnablePassthroughDockspace { get; set; } = true;
 
-    protected override void OnLoad()
+    protected override unsafe void OnLoad()
     {
         base.OnLoad();
-        ImGuiController = new ImGuiController(ClientSize.X, ClientSize.Y, FontResource);
-        IsLoaded = true;
+
+        ImGuiContext = ImGui.CreateContext();
+        ImPlotContext = ImPlot.CreateContext();
+        ImGuizmo.SetImGuiContext(ImGuiContext);
+
+        var io = ImGui.GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
+        if (EnableDocking)
+            io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+        if (EnableViewports)
+            io.ConfigFlags |= ImGuiConfigFlags.ViewportsEnable;
+
+        ImGui.StyleColorsDark();
+        if (EnableViewports)
+        {
+            var style = ImGui.GetStyle();
+            style.WindowRounding = 0.0f;
+            style.AsRef().Colors[(int)ImGuiCol.WindowBg].w = 1.0f;
+        }
+
+        ImGuiImplGlfw.InitForOpenGL(WindowPtr, true);
+        ImGuiImplOpenGL3.Init("#version 330 core");
     }
 
     protected override void OnUnload()
     {
+        ImGuiImplOpenGL3.Shutdown();
+        ImGuiImplGlfw.Shutdown();
+        if (!ImPlotContext.IsNull)
+            ImPlot.DestroyContext(ImPlotContext);
+        if (!ImGuiContext.IsNull)
+            ImGui.DestroyContext(ImGuiContext);
+
         base.OnUnload();
-        ImGuiController.Dispose();
-        IsLoaded = false;
-    }
-
-    protected override void OnResize(ResizeEventArgs e)
-    {
-        base.OnResize(e);
-        if (!IsLoaded) return;
-        ImGuiController.OnWindowResized(ClientSize.X, ClientSize.Y);
-    }
-
-    protected override void OnUpdateFrame(FrameEventArgs args)
-    {
-        base.OnUpdateFrame(args);
-        ImGuiController.Update((float)args.Time);
-    }
-
-    protected override void OnKeyDown(KeyboardKeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        ImGuiController.OnKey(e, true);
-    }
-
-    protected override void OnTextInput(TextInputEventArgs e)
-    {
-        base.OnTextInput(e);
-        ImGuiController.OnPressedChar((char)e.Unicode);
-    }
-
-    protected override void OnKeyUp(KeyboardKeyEventArgs e)
-    {
-        base.OnKeyUp(e);
-        ImGuiController.OnKey(e, false);
-    }
-
-    protected override void OnMouseDown(MouseButtonEventArgs e)
-    {
-        base.OnMouseDown(e);
-        ImGuiController.OnMouseButton(e);
-    }
-
-    protected override void OnMouseUp(MouseButtonEventArgs e)
-    {
-        base.OnMouseUp(e);
-        ImGuiController.OnMouseButton(e);
-    }
-
-    protected override void OnMouseMove(MouseMoveEventArgs e)
-    {
-        base.OnMouseMove(e);
-        ImGuiController.OnMouseMove(e);
-    }
-
-    protected override void OnMouseWheel(MouseWheelEventArgs e)
-    {
-        base.OnMouseWheel(e);
-        ImGuiController.OnMouseScroll(e);
     }
 
     protected virtual void BuildGuiLayout()
     {
-        
     }
 
-    protected void RenderGui()
+    protected unsafe void RenderGui()
     {
+        ImGuiImplOpenGL3.NewFrame();
+        ImGuiImplGlfw.NewFrame();
+        ImGui.NewFrame();
+        ImGuizmo.BeginFrame();
+
+        var io = ImGui.GetIO();
+        if (EnablePassthroughDockspace && (io.ConfigFlags & ImGuiConfigFlags.DockingEnable) != 0)
+        {
+            ImGui.DockSpaceOverViewport(0, ImGui.GetMainViewport(), ImGuiDockNodeFlags.PassthruCentralNode);
+        }
+
         BuildGuiLayout();
-        ImGuiController.Render();
+
+        ImGui.Render();
+        ImGuiImplOpenGL3.RenderDrawData();
+
+        if ((io.ConfigFlags & ImGuiConfigFlags.ViewportsEnable) != 0)
+        {
+            Window* backup = GLFW.GetCurrentContext();
+            ImGui.UpdatePlatformWindows();
+            ImGui.RenderPlatformWindowsDefault();
+            GLFW.MakeContextCurrent(backup);
+        }
     }
 }
