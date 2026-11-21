@@ -22,10 +22,10 @@ public class Plane : IDisposable
             new(0, 0, -1, 0)
         ];
         byte[] indices = {
-            0, 1, 2,
-            0, 2, 3,
-            0, 3, 4,
-            0, 4, 1
+            0, 2, 1,
+            0, 3, 2,
+            0, 4, 3,
+            0, 1, 4
         };
         IndexBuffer ibo = new IndexBuffer(indices, indices.Length * sizeof(byte), DrawElementsType.UnsignedByte,
             indices.Length);
